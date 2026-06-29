@@ -1,0 +1,139 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{graphicx}
+
+% Colores corporativos y de código
+\definecolor{sena-green}{RGB}{57, 169, 0}
+\definecolor{header-color}{RGB}{50, 50, 50}
+\definecolor{code-bg}{RGB}{245, 245, 245}
+\definecolor{comment-green}{RGB}{0, 128, 0}
+
+\lstset{
+    backgroundcolor=\color{code-bg},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    keywordstyle=\color{blue},
+    commentstyle=\color{comment-green},
+    stringstyle=\color{orange},
+    frame=single,
+    language=bash,
+    showstringspaces=false
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\color{header-color}\small Reporte de plan de pruebas ejecutados}
+\rhead{\color{header-color}\small GA9-220501096-AA3-EV02}
+\lfoot{\small Análisis y Desarrollo de Software}
+\rfoot{\small Página \thepage}
+
+\begin{document}
+
+% --- 3. PORTADA ---
+\begin{titlepage}
+\thispagestyle{empty} 
+\centering
+\vspace*{3cm}
+
+{\Huge \textbf{Reporte de plan de pruebas ejecutados}}\\[1.5cm]
+
+{\Large GA9-220501096-AA3-EV02}\\[3cm]
+
+{\Large \textbf{Juan Alejandro Guzmán Gallo}}\\[3cm]
+
+\vfill
+
+{\Large Ficha 3118307}\\[0.5cm]
+{\Large Programa: Análisis y Desarrollo de Software}\\[0.5cm]
+{\Large Instructor: Henry Alfonso Garzon Sanchez}\\[0.5cm]
+{\Large \today}\\[1cm]
+
+\end{titlepage}
+
+\newpage
+
+\section*{1. INTRODUCCIÓN}
+El presente reporte consolida los resultados obtenidos durante la ejecución de los Casos de Prueba (Ciclo 1: Integración E2E) aplicados al software de la Clínica Veterinaria. El objetivo principal de este ciclo es validar la correcta operatividad, integridad de los datos y seguridad del flujo operativo central (Autenticación, Gestión de Mascotas, Citas, Diagnósticos, Inventarios y Facturación). 
+
+Mantener una trazabilidad clara entre los requerimientos, los casos de prueba diseñados y los resultados reales permite identificar desviaciones tempranas, ejecutar acciones correctivas eficaces y garantizar un producto final de alta calidad que cumpla con los estándares operativos.
+
+\section*{2. CONSOLIDADO DE TRAZABILIDAD Y RESULTADOS}
+
+\begin{longtable}{|p{1.5cm}|p{2.5cm}|p{3.5cm}|p{3.5cm}|p{2cm}|p{2.5cm}|}
+\hline
+\rowcolor{sena-green!20}
+\textbf{ID Prueba} & \textbf{Funcionalidad} & \textbf{Resultado Esperado} & \textbf{Resultado Obtenido (Ejecución)} & \textbf{Estado Final} & \textbf{Acciones Correctivas / Notas} \\
+\hline
+\endfirsthead
+\hline
+\rowcolor{sena-green!20}
+\textbf{ID Prueba} & \textbf{Funcionalidad} & \textbf{Resultado Esperado} & \textbf{Resultado Obtenido (Ejecución)} & \textbf{Estado Final} & \textbf{Acciones Correctivas / Notas} \\
+\hline
+\endhead
+\textbf{TC-001} & Login de Usuarios & Autenticación correcta y generación de token. & El sistema genera el token JWT y redirige según el rol. & \textbf{Exitoso (Pass)} & Ninguna. \\ \hline
+\textbf{TC-002} & Crear Mascota & Mascota registrada en BD y asociada al cliente. & La mascota se guarda correctamente en la tabla \texttt{mascotas}. & \textbf{Exitoso (Pass)} & Se comprobó la llave foránea con \texttt{usuarios}. \\ \hline
+\textbf{TC-003} & Programar Cita & Cita en estado 'programada' con veterinario y servicio. & Cita guardada correctamente y horario bloqueado. & \textbf{Exitoso (Pass)} & Ninguna. \\ \hline
+\textbf{TC-004} & Registro de Diagnóstico & Inserción en \texttt{diagnosticos} y cita cambia a 'completada'. & Diagnóstico guardado y estado de cita actualizado a 'completada'. & \textbf{Exitoso (Pass)} & Ninguna. \\ \hline
+\textbf{TC-005} & Receta / Tratamiento & Tratamiento en estado 'activo' con fecha de inicio. & El registro se inserta exitosamente en \texttt{tratamientos}. & \textbf{Exitoso (Pass)} & Ninguna. \\ \hline
+\textbf{TC-006} & Aplicar Vacuna & Vacunación registrada con cálculo de próxima fecha. & Cálculo de próxima fecha de vacuna es correcto. & \textbf{Exitoso (Pass)} & Ninguna. \\ \hline
+\textbf{TC-007} & Control Inventario & Tabla \texttt{inventarios} descuenta la cantidad utilizada. & El inventario reduce correctamente el stock. & \textbf{Exitoso (Pass)} & Asegurar bloqueo de transacciones si stock es cero. \\ \hline
+\textbf{TC-008} & Emitir Factura & Factura en 'pendiente' y cálculo de subtotal correcto. & Factura y detalles creados; subtotal calculado bien. & \textbf{Exitoso (Pass)} & Ninguna. \\ \hline
+\textbf{TC-009} & Pago Factura & Estado cambia a 'pagada' y registra fecha de pago. & Estado actualizado a 'pagada' correctamente. & \textbf{Exitoso (Pass)} & Ninguna. \\ \hline
+\textbf{TC-010} & Notificación Cita & Inserción en \texttt{notificaciones} estado leída en falso (0). & Notificación guardada exitosamente. & \textbf{Exitoso (Pass)} & Ninguna. \\ \hline
+\end{longtable}
+
+\section*{3. EVIDENCIA DE EJECUCIÓN AUTOMATIZADA (LOGS DE CONSOLA)}
+
+A continuación, se adjunta la salida de consola generada por el framework de pruebas (\texttt{Jest} + \texttt{Supertest}) al ejecutar los scripts automatizados para el módulo principal. Las pruebas están agrupadas bajo la suite o \textit{describe}: \textbf{Ejecución E2E de los 10 Casos de Prueba (TC-001 al TC-010)}.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.95\textwidth]{1.png}
+    \caption{Captura de consola de la ejecución de pruebas E2E (TC-001 al TC-010)}
+\end{figure}
+
+Transcripción de los logs obtenidos:
+
+\begin{lstlisting}[language=bash]
+> apiveterinaria@1.0.0 test
+> node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose
+
+PASS tests/pruebas.test.js (4.234 s)
+  Ejecución E2E de los 10 Casos de Prueba (TC-001 al TC-010)
+    [v] TC-001: Login de Usuarios (234 ms)
+    [v] TC-002: Crear Mascota (Cliente) (21 ms)
+    [v] TC-003: Programar Cita (52 ms)
+    [v] TC-004: Registro de Diagnóstico (Veterinario) (46 ms)
+    [v] TC-005 y TC-007: Asignación de tratamiento y descuento en inventario (38 ms)
+    [v] TC-006: Aplicación de vacuna (Veterinario) (22 ms)
+    [v] TC-008: Generación de factura de atención (Admin) (17 ms)
+    [v] TC-009: Actualización de pago de factura (Admin) (18 ms)
+    [v] TC-010: Generación de notificaciones al cliente (14 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       9 passed, 9 total
+Snapshots:   0 total
+Time:        4.551 s
+Ran all test suites.
+\end{lstlisting}
+
+\textit{Nota: Los símbolos checkmark ($\checkmark$) originales de consola se han sustituido por [v] por compatibilidad de codificación en entornos LaTeX estándares.}
+
+\section*{4. CONCLUSIONES}
+\begin{enumerate}
+    \item \textbf{Estabilidad General:} El sistema muestra una estabilidad funcional del 100\% en su flujo core (End-to-End). Los módulos de autenticación, gestión de mascotas, citas, historias clínicas, facturación y notificaciones operan según lo diseñado.
+    \item \textbf{Hallazgos Relevantes:} Los incidentes menores encontrados inicialmente (como el desajuste de tipos de fecha o nombres de columna en inventario) fueron corregidos con éxito en la API y comprobados durante la reejecución de los casos.
+    \item \textbf{Plan de Acción:} Continuar integrando estos tests E2E automatizados al flujo CI/CD del repositorio para prevenir regresiones. 
+    \item \textbf{Viabilidad:} Con el 100\% de las pruebas pasando, el módulo principal de la veterinaria está completamente validado y habilitado para el despliegue en ambiente de producción.
+\end{enumerate}
+
+\end{document}

@@ -1,0 +1,832 @@
+@* ═══════════════════════════════════════════════════════════════
+   Inventario.razor — Módulo de gestión de inventario
+   Ruta: /inventario
+
+   Funcionalidades:
+     · Lista de medicamentos con stock, alertas de stock bajo / vencidos
+     · Crear medicamento (con stock inicial)
+     · Editar datos del medicamento
+     · Ajustar stock (cantidad, lote, vencimiento)
+     · Eliminar medicamento (protegido si tiene tratamientos activos)
+
+   Acceso: solo administrador.
+═══════════════════════════════════════════════════════════════ *@
+
+@page "/inventario"
+@using VeterinariaAntioquia.Shared.Models
+@using VeterinariaAntioquia.Shared.Services
+@using System.Security.Claims
+@using System.Globalization
+@inject InventarioService InventarioService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Inventario — VetAntioquia</PageTitle>
+
+<div class="inv-wrap">
+
+    @* ── Encabezado ──────────────────────────────────────────── *@
+    <div class="inv-header">
+        <div class="inv-header-text">
+            <h1 class="inv-title">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                Inventario de Medicamentos
+            </h1>
+            <p class="inv-sub">Control de stock, vencimientos y medicamentos disponibles</p>
+        </div>
+        <button class="inv-btn-nuevo" @onclick="AbrirFormularioNuevo">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nuevo medicamento</span>
+        </button>
+    </div>
+
+    @* ── Error global ─────────────────────────────────────────── *@
+    @if (!string.IsNullOrEmpty(errorGlobal))
+    {
+        <div class="inv-alert-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            @errorGlobal
+        </div>
+    }
+
+    @* ── Panel de alertas de stock ────────────────────────────── *@
+    @{
+        var enAlerta = inventario.Where(m => m.StockBajo || m.Vencido).ToList();
+    }
+    @if (enAlerta.Any())
+    {
+        <div class="inv-alertas-panel">
+            <div class="inv-alertas-header">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                @enAlerta.Count alerta@(enAlerta.Count == 1 ? "" : "s") — Stock bajo o producto vencido
+            </div>
+            <div class="inv-alertas-list">
+                @foreach (var a in enAlerta)
+                {
+                    <span class="inv-alerta-chip @(a.Vencido ? "vencido" : "bajo")">
+                        <i class="fa-solid @(a.Vencido ? "fa-skull-crossbones" : "fa-arrow-trend-down")"></i>
+                        @a.Nombre
+                        @if (a.Vencido) { <span>(VENCIDO)</span> }
+                        else { <span>(@a.Cantidad uds.)</span> }
+                    </span>
+                }
+            </div>
+        </div>
+    }
+
+    @* ── Estadísticas rápidas ─────────────────────────────────── *@
+    @if (!cargando && inventario.Any())
+    {
+        <div class="inv-stats">
+            <div class="inv-stat-card">
+                <i class="fa-solid fa-pills inv-stat-icon"></i>
+                <div>
+                    <span class="inv-stat-num">@inventario.Count</span>
+                    <span class="inv-stat-label">Medicamentos</span>
+                </div>
+            </div>
+            <div class="inv-stat-card warning">
+                <i class="fa-solid fa-arrow-trend-down inv-stat-icon"></i>
+                <div>
+                    <span class="inv-stat-num">@inventario.Count(m => m.StockBajo)</span>
+                    <span class="inv-stat-label">Stock bajo</span>
+                </div>
+            </div>
+            <div class="inv-stat-card danger">
+                <i class="fa-solid fa-skull-crossbones inv-stat-icon"></i>
+                <div>
+                    <span class="inv-stat-num">@inventario.Count(m => m.Vencido)</span>
+                    <span class="inv-stat-label">Vencidos</span>
+                </div>
+            </div>
+            <div class="inv-stat-card success">
+                <i class="fa-solid fa-check-circle inv-stat-icon"></i>
+                <div>
+                    <span class="inv-stat-num">@inventario.Count(m => !m.StockBajo && !m.Vencido)</span>
+                    <span class="inv-stat-label">En orden</span>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ── Buscador ─────────────────────────────────────────────── *@
+    @if (!cargando && inventario.Any())
+    {
+        <div class="inv-search-row">
+            <div class="inv-search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text"
+                       class="inv-search-input"
+                       placeholder="Buscar por nombre, tipo o fabricante…"
+                       @bind="busqueda"
+                       @bind:event="oninput" />
+                @if (!string.IsNullOrEmpty(busqueda))
+                {
+                    <button class="inv-search-clear" @onclick='() => busqueda = ""'>
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                }
+            </div>
+            <select class="inv-filter-select" @bind="filtroEstado">
+                <option value="">Todos</option>
+                <option value="bajo">Stock bajo</option>
+                <option value="vencido">Vencidos</option>
+                <option value="ok">En orden</option>
+            </select>
+        </div>
+    }
+
+    @* ── Modal Crear / Editar medicamento ─────────────────────── *@
+    @if (mostrarFormMedicamento)
+    {
+        <div class="inv-overlay" @onclick="CerrarFormMedicamento">
+            <div class="inv-modal inv-modal--wide" @onclick:stopPropagation="true">
+                <div class="inv-modal-header">
+                    <i class="fa-solid @(modoEdicion ? "fa-pen-to-square" : "fa-plus-circle")"></i>
+                    <span>@(modoEdicion ? "Editar medicamento" : "Nuevo medicamento")</span>
+                    <button class="inv-modal-close" @onclick="CerrarFormMedicamento">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorModal))
+                {
+                    <div class="inv-modal-error">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        @errorModal
+                    </div>
+                }
+
+                <div class="inv-modal-body">
+                    <div class="inv-grid-2">
+
+                        <div class="inv-field">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-tag"></i>
+                                Nombre <span class="inv-req">*</span>
+                            </label>
+                            <input class="inv-input" type="text" maxlength="100"
+                                   placeholder="Ej: Amoxicilina 500mg"
+                                   @bind="formNombre" @bind:event="oninput" />
+                        </div>
+
+                        <div class="inv-field">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-layer-group"></i>
+                                Tipo <span class="inv-req">*</span>
+                            </label>
+                            <input class="inv-input" type="text" maxlength="50"
+                                   placeholder="Ej: Antibiótico, Antiparasitario…"
+                                   @bind="formTipo" @bind:event="oninput" />
+                        </div>
+
+                        <div class="inv-field">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-industry"></i>
+                                Fabricante <span class="inv-opt">(opcional)</span>
+                            </label>
+                            <input class="inv-input" type="text" maxlength="100"
+                                   placeholder="Ej: Pfizer Animal Health"
+                                   @bind="formFabricante" @bind:event="oninput" />
+                        </div>
+
+                        <div class="inv-field">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-dollar-sign"></i>
+                                Precio (COP) <span class="inv-req">*</span>
+                            </label>
+                            <input class="inv-input" type="number" min="0" step="100"
+                                   placeholder="0"
+                                   @bind="formPrecio" @bind:event="oninput" />
+                        </div>
+
+                        <div class="inv-field inv-field--full">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-align-left"></i>
+                                Descripción <span class="inv-opt">(opcional)</span>
+                            </label>
+                            <textarea class="inv-textarea" rows="2" maxlength="1000"
+                                      placeholder="Uso indicado, presentación…"
+                                      @bind="formDescripcion" @bind:event="oninput"></textarea>
+                        </div>
+
+                        <div class="inv-field inv-field--full">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-circle-exclamation"></i>
+                                Contraindicaciones <span class="inv-opt">(opcional)</span>
+                            </label>
+                            <textarea class="inv-textarea" rows="2" maxlength="1000"
+                                      placeholder="Casos en que no se debe administrar…"
+                                      @bind="formContraind" @bind:event="oninput"></textarea>
+                        </div>
+
+                        @* Stock inicial — solo en modo creación *@
+                        @if (!modoEdicion)
+                        {
+                            <div class="inv-separator"><span>Stock inicial</span></div>
+
+                            <div class="inv-field">
+                                <label class="inv-label">
+                                    <i class="fa-solid fa-cubes"></i>
+                                    Cantidad inicial
+                                </label>
+                                <input class="inv-input" type="number" min="0"
+                                       @bind="formCantidad" @bind:event="oninput" />
+                            </div>
+
+                            <div class="inv-field">
+                                <label class="inv-label">
+                                    <i class="fa-solid fa-bell"></i>
+                                    Cantidad mínima (alerta)
+                                </label>
+                                <input class="inv-input" type="number" min="0"
+                                       @bind="formCantidadMin" @bind:event="oninput" />
+                            </div>
+
+                            <div class="inv-field">
+                                <label class="inv-label">
+                                    <i class="fa-solid fa-calendar-xmark"></i>
+                                    Fecha de vencimiento <span class="inv-opt">(opcional)</span>
+                                </label>
+                                <input class="inv-input" type="date"
+                                       @bind="formFechaVenc" @bind:event="oninput" />
+                            </div>
+
+                            <div class="inv-field">
+                                <label class="inv-label">
+                                    <i class="fa-solid fa-barcode"></i>
+                                    Lote <span class="inv-opt">(opcional)</span>
+                                </label>
+                                <input class="inv-input" type="text" maxlength="50"
+                                       placeholder="Ej: LOTE-2024-001"
+                                       @bind="formLote" @bind:event="oninput" />
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="inv-modal-footer">
+                    <button class="inv-btn-cancel" @onclick="CerrarFormMedicamento" disabled="@guardando">
+                        <i class="fa-solid fa-xmark"></i> Cancelar
+                    </button>
+                    <button class="inv-btn-save" @onclick="GuardarMedicamento" disabled="@guardando">
+                        @if (guardando)
+                        {
+                            <span class="inv-spinner-sm"></span><span>Guardando…</span>
+                        }
+                        else
+                        {
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>@(modoEdicion ? "Actualizar" : "Crear medicamento")</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ── Modal Ajustar Stock ───────────────────────────────────── *@
+    @if (mostrarFormStock)
+    {
+        <div class="inv-overlay" @onclick="CerrarFormStock">
+            <div class="inv-modal" @onclick:stopPropagation="true">
+                <div class="inv-modal-header">
+                    <i class="fa-solid fa-cubes"></i>
+                    <span>Ajustar stock — @medStock?.Nombre</span>
+                    <button class="inv-modal-close" @onclick="CerrarFormStock">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorModal))
+                {
+                    <div class="inv-modal-error">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        @errorModal
+                    </div>
+                }
+
+                <div class="inv-modal-body">
+                    <div class="inv-grid-2">
+
+                        <div class="inv-field">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-cubes"></i>
+                                Cantidad actual <span class="inv-req">*</span>
+                            </label>
+                            <input class="inv-input" type="number" min="0"
+                                   @bind="stockCantidad" @bind:event="oninput" />
+                        </div>
+
+                        <div class="inv-field">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-bell"></i>
+                                Cantidad mínima (alerta)
+                            </label>
+                            <input class="inv-input" type="number" min="0"
+                                   @bind="stockCantidadMin" @bind:event="oninput" />
+                        </div>
+
+                        <div class="inv-field">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-calendar-xmark"></i>
+                                Fecha de vencimiento
+                            </label>
+                            <input class="inv-input" type="date"
+                                   @bind="stockFechaVenc" @bind:event="oninput" />
+                        </div>
+
+                        <div class="inv-field">
+                            <label class="inv-label">
+                                <i class="fa-solid fa-barcode"></i>
+                                Lote
+                            </label>
+                            <input class="inv-input" type="text" maxlength="50"
+                                   @bind="stockLote" @bind:event="oninput" />
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="inv-modal-footer">
+                    <button class="inv-btn-cancel" @onclick="CerrarFormStock" disabled="@guardando">
+                        <i class="fa-solid fa-xmark"></i> Cancelar
+                    </button>
+                    <button class="inv-btn-save" @onclick="GuardarStock" disabled="@guardando">
+                        @if (guardando)
+                        {
+                            <span class="inv-spinner-sm"></span><span>Guardando…</span>
+                        }
+                        else
+                        {
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>Actualizar stock</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ── Modal Confirmar Eliminación ───────────────────────────── *@
+    @if (medEliminar != null)
+    {
+        <div class="inv-overlay" @onclick="CancelarEliminar">
+            <div class="inv-confirm-modal" @onclick:stopPropagation="true">
+                <div class="inv-confirm-icon">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="inv-confirm-title">¿Eliminar medicamento?</h3>
+                <p class="inv-confirm-msg">
+                    Vas a eliminar <strong>@medEliminar.Nombre</strong> y su registro de inventario.
+                    La acción fallará si hay tratamientos activos con este medicamento.
+                </p>
+                @if (!string.IsNullOrEmpty(errorEliminar))
+                {
+                    <div class="inv-modal-error" style="width:100%;box-sizing:border-box;">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        @errorEliminar
+                    </div>
+                }
+                <div class="inv-confirm-actions">
+                    <button class="inv-btn-cancel" @onclick="CancelarEliminar" disabled="@eliminando">
+                        <i class="fa-solid fa-xmark"></i> Cancelar
+                    </button>
+                    <button class="inv-btn-delete" @onclick="EjecutarEliminar" disabled="@eliminando">
+                        @if (eliminando)
+                        {
+                            <span class="inv-spinner-sm inv-spinner-sm--red"></span><span>Eliminando…</span>
+                        }
+                        else
+                        {
+                            <i class="fa-solid fa-trash"></i><span>Sí, eliminar</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ── Estado de carga ─────────────────────────────────────── *@
+    @if (cargando)
+    {
+        <div class="inv-loading">
+            <span class="inv-spinner"></span>
+            Cargando inventario…
+        </div>
+    }
+    else if (!inventario.Any())
+    {
+        <div class="inv-empty">
+            <i class="fa-solid fa-box-open inv-empty-ico"></i>
+            <h3>No hay medicamentos registrados</h3>
+            <p>Haz clic en "Nuevo medicamento" para agregar el primero.</p>
+        </div>
+    }
+    else
+    {
+        @* ── Tabla de inventario ──────────────────────────────── *@
+        <div class="inv-table-wrap">
+            <table class="inv-table">
+                <thead>
+                    <tr>
+                        <th>Medicamento</th>
+                        <th>Tipo</th>
+                        <th class="center">Stock</th>
+                        <th class="center">Mín.</th>
+                        <th>Vencimiento</th>
+                        <th>Lote</th>
+                        <th class="right">Precio</th>
+                        <th class="center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in InventarioFiltrado)
+                    {
+                        <tr class="@FilaClase(m)">
+                            <td>
+                                <div class="inv-med-nombre">@m.Nombre</div>
+                                @if (!string.IsNullOrEmpty(m.Fabricante))
+                                {
+                                    <div class="inv-med-fab">@m.Fabricante</div>
+                                }
+                            </td>
+                            <td>
+                                <span class="inv-tipo-badge">@m.Tipo</span>
+                            </td>
+                            <td class="center">
+                                <span class="inv-cantidad @(m.StockBajo ? "bajo" : "ok")">
+                                    @m.Cantidad
+                                </span>
+                            </td>
+                            <td class="center inv-minimo">@m.CantidadMinima</td>
+                            <td>
+                                @if (m.FechaVencimiento.HasValue)
+                                {
+                                    <span class="inv-fecha @(m.Vencido ? "vencido" : "")">
+                                        @if (m.Vencido)
+                                        {
+                                            <i class="fa-solid fa-skull-crossbones"></i>
+                                        }
+                                        @m.FechaVencimiento.Value.ToString("dd/MM/yyyy")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inv-sin-dato">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(m.Lote))
+                                {
+                                    <span class="inv-lote">@m.Lote</span>
+                                }
+                                else
+                                {
+                                    <span class="inv-sin-dato">—</span>
+                                }
+                            </td>
+                            <td class="right inv-precio">
+                                $@m.Precio.ToString("N0", CultureInfo.GetCultureInfo("es-CO"))
+                            </td>
+                            <td class="center">
+                                <div class="inv-actions">
+                                    <button class="inv-btn-icon blue" title="Ajustar stock"
+                                            @onclick="() => AbrirFormStock(m)">
+                                        <i class="fa-solid fa-cubes"></i>
+                                    </button>
+                                    <button class="inv-btn-icon teal" title="Editar medicamento"
+                                            @onclick="() => AbrirFormEditar(m)">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button class="inv-btn-icon red" title="Eliminar medicamento"
+                                            @onclick="() => ConfirmarEliminar(m)">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (!InventarioFiltrado.Any())
+            {
+                <div class="inv-no-resultados">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    No hay medicamentos que coincidan con la búsqueda.
+                </div>
+            }
+        </div>
+    }
+
+</div>
+
+@code {
+    // ──────────────────────────────────────────────────────────
+    //  Estado
+    // ──────────────────────────────────────────────────────────
+    private List<MedicamentoInventario> inventario = new();
+    private bool   cargando    = true;
+    private string errorGlobal = "";
+    private string busqueda    = "";
+    private string filtroEstado = "";
+
+    // ── Inventario filtrado por búsqueda/estado ───────────────
+    private IEnumerable<MedicamentoInventario> InventarioFiltrado => inventario
+        .Where(m =>
+            (string.IsNullOrEmpty(busqueda) ||
+             m.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+             m.Tipo.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+             (m.Fabricante?.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ?? false))
+            &&
+            filtroEstado switch
+            {
+                "bajo"    => m.StockBajo && !m.Vencido,
+                "vencido" => m.Vencido,
+                "ok"      => !m.StockBajo && !m.Vencido,
+                _         => true
+            });
+
+    // ── Formulario Medicamento ────────────────────────────────
+    private bool   mostrarFormMedicamento = false;
+    private bool   modoEdicion            = false;
+    private bool   guardando              = false;
+    private string errorModal             = "";
+    private int?   medEditandoId          = null;
+
+    private string  formNombre      = "";
+    private string  formTipo        = "";
+    private string? formFabricante  = null;
+    private decimal formPrecio      = 0;
+    private string? formDescripcion = null;
+    private string? formContraind   = null;
+    private int     formCantidad    = 0;
+    private int     formCantidadMin = 5;
+    private DateTime? formFechaVenc = null;
+    private string? formLote        = null;
+
+    // ── Formulario Stock ──────────────────────────────────────
+    private bool   mostrarFormStock = false;
+    private MedicamentoInventario? medStock = null;
+    private int     stockCantidad    = 0;
+    private int     stockCantidadMin = 5;
+    private DateTime? stockFechaVenc = null;
+    private string? stockLote        = null;
+
+    // ── Eliminar ──────────────────────────────────────────────
+    private MedicamentoInventario? medEliminar   = null;
+    private bool   eliminando    = false;
+    private string errorEliminar = "";
+
+    // ──────────────────────────────────────────────────────────
+    //  Lifecycle
+    // ──────────────────────────────────────────────────────────
+    protected override Task OnInitializedAsync() => Task.CompletedTask;
+    private bool _cargaRealizada = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _cargaRealizada) return;
+        _cargaRealizada = true;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user      = authState.User;
+
+        if (!user.Identity?.IsAuthenticated ?? true)
+        {
+            Navigation.NavigateTo("/auth/login", forceLoad: false);
+            return;
+        }
+
+        var rol = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? "";
+        if (rol != "administrador")
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        await CargarInventario();
+        StateHasChanged();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Datos
+    // ──────────────────────────────────────────────────────────
+    private async Task CargarInventario()
+    {
+        cargando    = true;
+        errorGlobal = "";
+        var (data, error) = await InventarioService.GetInventarioAsync();
+        if (error != null) errorGlobal = error;
+        else               inventario  = data;
+        cargando = false;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Formulario — Nuevo medicamento
+    // ──────────────────────────────────────────────────────────
+    private void AbrirFormularioNuevo()
+    {
+        modoEdicion       = false;
+        medEditandoId     = null;
+        formNombre        = "";
+        formTipo          = "";
+        formFabricante    = null;
+        formPrecio        = 0;
+        formDescripcion   = null;
+        formContraind     = null;
+        formCantidad      = 0;
+        formCantidadMin   = 5;
+        formFechaVenc     = null;
+        formLote          = null;
+        errorModal        = "";
+        mostrarFormMedicamento = true;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Formulario — Editar medicamento
+    // ──────────────────────────────────────────────────────────
+    private void AbrirFormEditar(MedicamentoInventario m)
+    {
+        modoEdicion     = true;
+        medEditandoId   = m.Id;
+        formNombre      = m.Nombre;
+        formTipo        = m.Tipo;
+        formFabricante  = m.Fabricante;
+        formPrecio      = m.Precio;
+        formDescripcion = m.Descripcion;
+        formContraind   = m.Contraindicaciones;
+        errorModal      = "";
+        mostrarFormMedicamento = true;
+    }
+
+    private void CerrarFormMedicamento()
+    {
+        mostrarFormMedicamento = false;
+        errorModal             = "";
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Guardar medicamento (crear o editar)
+    // ──────────────────────────────────────────────────────────
+    private async Task GuardarMedicamento()
+    {
+        errorModal = "";
+
+        if (string.IsNullOrWhiteSpace(formNombre)) { errorModal = "El nombre es obligatorio."; return; }
+        if (string.IsNullOrWhiteSpace(formTipo))   { errorModal = "El tipo es obligatorio."; return; }
+        if (formPrecio < 0)                        { errorModal = "El precio no puede ser negativo."; return; }
+
+        guardando = true;
+
+        var req = new MedicamentoRequest
+        {
+            Nombre             = formNombre.Trim(),
+            Tipo               = formTipo.Trim(),
+            Descripcion        = string.IsNullOrWhiteSpace(formDescripcion) ? null : formDescripcion.Trim(),
+            Contraindicaciones = string.IsNullOrWhiteSpace(formContraind)   ? null : formContraind.Trim(),
+            Fabricante         = string.IsNullOrWhiteSpace(formFabricante)  ? null : formFabricante.Trim(),
+            Precio             = formPrecio,
+            Cantidad           = formCantidad,
+            CantidadMinima     = formCantidadMin,
+            FechaVencimiento   = formFechaVenc.HasValue ? formFechaVenc.Value.ToString("yyyy-MM-dd") : null,
+            Lote               = string.IsNullOrWhiteSpace(formLote) ? null : formLote.Trim(),
+        };
+
+        if (modoEdicion && medEditandoId.HasValue)
+        {
+            var (data, error) = await InventarioService.EditarMedicamentoAsync(medEditandoId.Value, req);
+            if (error != null) { errorModal = error; }
+            else if (data != null)
+            {
+                var idx = inventario.FindIndex(m => m.Id == data.Id);
+                if (idx >= 0)
+                {
+                    inventario[idx].Nombre             = data.Nombre;
+                    inventario[idx].Tipo               = data.Tipo;
+                    inventario[idx].Fabricante         = data.Fabricante;
+                    inventario[idx].Precio             = data.Precio;
+                    inventario[idx].Descripcion        = data.Descripcion;
+                    inventario[idx].Contraindicaciones = data.Contraindicaciones;
+                }
+                mostrarFormMedicamento = false;
+            }
+        }
+        else
+        {
+            var (data, error) = await InventarioService.CrearMedicamentoAsync(req);
+            if (error != null) { errorModal = error; }
+            else if (data != null)
+            {
+                inventario.Add(data);
+                inventario = inventario.OrderBy(m => m.Nombre).ToList();
+                mostrarFormMedicamento = false;
+            }
+        }
+
+        guardando = false;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Formulario — Ajuste de stock
+    // ──────────────────────────────────────────────────────────
+    private void AbrirFormStock(MedicamentoInventario m)
+    {
+        medStock        = m;
+        stockCantidad   = m.Cantidad;
+        stockCantidadMin = m.CantidadMinima;
+        stockFechaVenc  = m.FechaVencimiento;
+        stockLote       = m.Lote;
+        errorModal      = "";
+        mostrarFormStock = true;
+    }
+
+    private void CerrarFormStock()
+    {
+        mostrarFormStock = false;
+        errorModal       = "";
+        medStock         = null;
+    }
+
+    private async Task GuardarStock()
+    {
+        if (medStock is null) return;
+        errorModal = "";
+
+        if (stockCantidad < 0) { errorModal = "La cantidad no puede ser negativa."; return; }
+
+        guardando = true;
+
+        var req = new AjusteStockRequest
+        {
+            Cantidad           = stockCantidad,
+            CantidadMinima     = stockCantidadMin,
+            FechaVencimiento   = stockFechaVenc.HasValue ? stockFechaVenc.Value.ToString("yyyy-MM-dd") : null,
+            Lote               = string.IsNullOrWhiteSpace(stockLote) ? null : stockLote.Trim(),
+        };
+
+        var (ok, error) = await InventarioService.AjustarStockAsync(medStock.Id, req);
+
+        if (!ok) { errorModal = error ?? "No se pudo actualizar el stock."; }
+        else
+        {
+            // Actualizar en memoria
+            var idx = inventario.FindIndex(m => m.Id == medStock.Id);
+            if (idx >= 0)
+            {
+                inventario[idx].Cantidad         = stockCantidad;
+                inventario[idx].CantidadMinima   = stockCantidadMin;
+                inventario[idx].FechaVencimiento = stockFechaVenc;
+                inventario[idx].Lote             = req.Lote;
+                inventario[idx].StockBajo = stockCantidad <= stockCantidadMin;
+                inventario[idx].Vencido   = stockFechaVenc.HasValue && stockFechaVenc.Value < DateTime.Today;
+            }
+            mostrarFormStock = false;
+        }
+
+        guardando = false;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Eliminar
+    // ──────────────────────────────────────────────────────────
+    private void ConfirmarEliminar(MedicamentoInventario m)
+    {
+        medEliminar  = m;
+        errorEliminar = "";
+    }
+
+    private void CancelarEliminar()
+    {
+        if (eliminando) return;
+        medEliminar   = null;
+        errorEliminar = "";
+    }
+
+    private async Task EjecutarEliminar()
+    {
+        if (medEliminar is null) return;
+        eliminando    = true;
+        errorEliminar = "";
+
+        var (ok, error) = await InventarioService.EliminarMedicamentoAsync(medEliminar.Id);
+        if (!ok) { errorEliminar = error ?? "No se pudo eliminar."; }
+        else
+        {
+            inventario.RemoveAll(m => m.Id == medEliminar.Id);
+            medEliminar = null;
+        }
+
+        eliminando = false;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Helpers UI
+    // ──────────────────────────────────────────────────────────
+    private static string FilaClase(MedicamentoInventario m)
+    {
+        if (m.Vencido)   return "row-vencido";
+        if (m.StockBajo) return "row-bajo";
+        return "";
+    }
+}

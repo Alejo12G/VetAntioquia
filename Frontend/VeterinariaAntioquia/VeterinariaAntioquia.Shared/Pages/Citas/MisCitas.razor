@@ -1,0 +1,398 @@
+﻿@* ═══════════════════════════════════════════════════════════════
+   MisCitas.razor — Vista de listado de citas del usuario
+   Ruta: /citas
+
+   Muestra todas las citas del usuario autenticado separadas en
+   dos pestañas: Próximas y Pasadas. Permite cancelar citas
+   que aún estén en estado "programada" o "confirmada".
+
+   Dependencias:
+     · CitaService  — carga y cancelación de citas
+     · NavigationManager — redirección a nueva cita o login
+     · AuthenticationStateProvider — guard de autenticación
+═══════════════════════════════════════════════════════════════ *@
+
+@page "/citas"
+@using VeterinariaAntioquia.Shared.Models
+@using VeterinariaAntioquia.Shared.Services
+@using System.Globalization
+@inject CitaService CitaService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Mis citas — VetAntioquia</PageTitle>
+
+<div class="mc-wrap">
+
+    @* ── Encabezado ────────────────────────────────────── *@
+    <div class="mc-header">
+        <div class="mc-header-text">
+            <h1 class="mc-title">Mis citas</h1>
+            <p class="mc-sub">Historial y próximas consultas</p>
+        </div>
+        <a href="/citas/nueva" class="mc-btn-nueva">
+            <i class="fa-solid fa-calendar-plus"></i>
+            <span>Nueva cita</span>
+        </a>
+    </div>
+
+    @* ── Error global (401, conexión, etc.) ────────────── *@
+    @if (!string.IsNullOrEmpty(errorGlobal))
+    {
+        <div class="mc-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            @errorGlobal
+            @if (errorGlobal.Contains("Sesión"))
+            {
+                <a href="/auth/login">Iniciar sesión</a>
+            }
+        </div>
+    }
+
+    @* ── Estado de carga ───────────────────────────────── *@
+    @if (cargando)
+    {
+        <div class="mc-loading">
+            <span class="mc-spinner"></span>
+            Cargando tus citas…
+        </div>
+    }
+    else if (!citas.Any())
+    {
+        @* ── Estado vacío ──────────────────────────────── *@
+        <div class="mc-empty">
+            <div class="mc-empty-ico">
+                <i class="fa-regular fa-calendar-xmark"></i>
+            </div>
+            <h3 class="mc-empty-title">No tienes citas registradas</h3>
+            <p class="mc-empty-sub">Agenda tu primera consulta para tu mascota.</p>
+            <a href="/citas/nueva" class="mc-btn-nueva outline">
+                <i class="fa-solid fa-calendar-plus"></i> Agendar ahora
+            </a>
+        </div>
+    }
+    else
+    {
+        @* ── Tabs Próximas / Pasadas ───────────────────── *@
+        <div class="mc-tabs">
+            <button class="mc-tab @(tabActiva == "proximas" ? "active" : "")"
+                    @onclick='() => tabActiva = "proximas"'>
+                Próximas
+                @if (CitasProximas.Any())
+                {
+                    <span class="mc-tab-badge">@CitasProximas.Count()</span>
+                }
+            </button>
+            <button class="mc-tab @(tabActiva == "pasadas" ? "active" : "")"
+                    @onclick='() => tabActiva = "pasadas"'>
+                Pasadas
+            </button>
+        </div>
+
+        @* ── Lista de citas ────────────────────────────── *@
+        <div class="mc-list">
+
+            @{
+                var citasMostradas = tabActiva == "proximas"
+                    ? CitasProximas
+                    : CitasPasadas;
+            }
+
+            @if (!citasMostradas.Any())
+            {
+                <div class="mc-tab-vacio">
+                    <i class="fa-regular fa-calendar"></i>
+                    @(tabActiva == "proximas"
+                        ? "No tienes citas próximas."
+                        : "No tienes citas anteriores.")
+                </div>
+            }
+            else
+            {
+                @foreach (var cita in citasMostradas)
+                {
+                    <div class="mc-card @(cita.EsPasada ? "pasada" : "")">
+
+                        @* Franja lateral de color según estado *@
+                        <div class="mc-card-accent @EstadoClase(cita.Estado)"></div>
+
+                        @* Bloque de fecha *@
+                        <div class="mc-fecha-bloque">
+                            <span class="mc-fecha-dia">
+                                @cita.Fecha.ToString("dd", CultureInfo.GetCultureInfo("es-CO"))
+                            </span>
+                            <span class="mc-fecha-mes">
+                                @cita.Fecha.ToString("MMM", CultureInfo.GetCultureInfo("es-CO")).ToUpper()
+                            </span>
+                            <span class="mc-fecha-hora">
+                                @cita.Fecha.ToString("HH:mm")
+                            </span>
+                        </div>
+
+                        @* Contenido principal *@
+                        <div class="mc-card-body">
+
+                            @* Servicio + badge de estado *@
+                            <div class="mc-card-top">
+                                <span class="mc-servicio-nombre">@cita.ServicioNombre</span>
+                                <span class="mc-badge @EstadoClase(cita.Estado)">
+                                    <i class="fa-solid @EstadoIcono(cita.Estado)"></i>
+                                    @EstadoLabel(cita.Estado)
+                                </span>
+                            </div>
+
+                            @* Detalles: veterinario, mascota, duración *@
+                            <div class="mc-card-meta">
+                                <span>
+                                    <i class="fa-solid fa-user-doctor"></i>
+                                    @cita.VeterinarioNombre
+                                </span>
+                                <span>
+                                    <i class="fa-solid fa-paw"></i>
+                                    @(cita.MascotaNombre ?? "Sin mascota especificada")
+                                </span>
+                                <span>
+                                    <i class="fa-regular fa-clock"></i>
+                                    @cita.DuracionMinutos min
+                                </span>
+                                <span class="mc-precio">
+                                    <i class="fa-solid fa-tag"></i>
+                                    $@cita.ServicioPrecioBase.ToString("N0")
+                                </span>
+                            </div>
+
+                            @* Motivo (si existe) *@
+                            @if (!string.IsNullOrEmpty(cita.Motivo))
+                            {
+                                <p class="mc-motivo">
+                                    <i class="fa-regular fa-note-sticky"></i>
+                                    @cita.Motivo
+                                </p>
+                            }
+
+                            @* Acción de cancelar (solo si es cancelable) *@
+                            @if (EsCancelable(cita))
+                            {
+                                @if (citaCancelando == cita.Id)
+                                {
+                                    @* Confirmación inline *@
+                                    <div class="mc-confirm">
+                                        <span class="mc-confirm-txt">
+                                            <i class="fa-solid fa-triangle-exclamation"></i>
+                                            ¿Seguro que deseas cancelar esta cita?
+                                        </span>
+                                        <div class="mc-confirm-btns">
+                                            <button class="mc-btn-confirmar"
+                                                    @onclick="() => ConfirmarCancelacion(cita.Id)"
+                                                    disabled="@cancelando">
+                                                @if (cancelando)
+                                                {
+                                                    <span class="mc-spinner xs"></span>
+                                                }
+                                                else
+                                                {
+                                                    <span>Sí, cancelar</span>
+                                                }
+                                            </button>
+                                            <button class="mc-btn-volver"
+                                                    @onclick="() => citaCancelando = null"
+                                                    disabled="@cancelando">
+                                                No, volver
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <button class="mc-btn-cancelar"
+                                            @onclick="() => citaCancelando = cita.Id">
+                                        <i class="fa-regular fa-circle-xmark"></i>
+                                        Cancelar cita
+                                    </button>
+                                }
+                            }
+
+                            @* Error puntual de cancelación *@
+                            @if (errorCancelacion.TryGetValue(cita.Id, out var errMsg))
+                            {
+                                <p class="mc-inline-error">
+                                    <i class="fa-solid fa-circle-exclamation"></i> @errMsg
+                                </p>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    // ──────────────────────────────────────────────────────────
+    //  Estado del componente
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>Lista completa de citas cargadas desde el API.</summary>
+    private List<CitaResumen> citas = new();
+
+    /// <summary>Tab activa: "proximas" | "pasadas".</summary>
+    private string tabActiva = "proximas";
+
+    /// <summary>Indica si se están cargando datos del API.</summary>
+    private bool cargando = true;
+
+    /// <summary>Error global (401, conexión, etc.).</summary>
+    private string errorGlobal = "";
+
+    /// <summary>ID de la cita que está esperando confirmación de cancelación.</summary>
+    private int? citaCancelando = null;
+
+    /// <summary>True mientras se está procesando una cancelación.</summary>
+    private bool cancelando = false;
+
+    /// <summary>Errores puntuales por cita al cancelar. Clave = id de cita.</summary>
+    private Dictionary<int, string> errorCancelacion = new();
+
+    // ──────────────────────────────────────────────────────────
+    //  Proyecciones filtradas
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>Citas futuras con estado "programada" o "confirmada".</summary>
+    private IEnumerable<CitaResumen> CitasProximas =>
+        citas.Where(c => c.EsProxima).OrderBy(c => c.Fecha);
+
+    /// <summary>Citas pasadas o en estado terminal, ordenadas de más reciente a más antigua.</summary>
+    private IEnumerable<CitaResumen> CitasPasadas =>
+        citas.Where(c => c.EsPasada).OrderByDescending(c => c.Fecha);
+
+    // ──────────────────────────────────────────────────────────
+    //  Lifecycle
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// No se carga nada aquí porque durante el prerendering de Blazor Server
+    /// JS Interop (necesario para leer el token) no está disponible.
+    /// La carga real ocurre en OnAfterRenderAsync.
+    /// </summary>
+    protected override Task OnInitializedAsync() => Task.CompletedTask;
+
+    private bool _cargaRealizada = false;
+
+    /// <summary>
+    /// Punto de entrada real del componente.
+    /// Verifica autenticación y carga las citas del usuario.
+    /// Se ejecuta solo en el primer render (firstRender = true)
+    /// y solo una vez (_cargaRealizada).
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _cargaRealizada) return;
+        _cargaRealizada = true;
+
+        // Guard de autenticación — JS disponible en este punto
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (!authState.User.Identity?.IsAuthenticated ?? true)
+        {
+            Navigation.NavigateTo("/auth/login", forceLoad: false);
+            return;
+        }
+
+        await CargarCitas();
+        StateHasChanged();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Métodos de datos
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Carga las citas del usuario autenticado desde el API.
+    /// En caso de error, almacena el mensaje en errorGlobal.
+    /// </summary>
+    private async Task CargarCitas()
+    {
+        cargando = true;
+        var (data, error) = await CitaService.GetMisCitasAsync();
+
+        if (error != null)
+            errorGlobal = error;
+        else
+            citas = data;
+
+        cargando = false;
+    }
+
+    /// <summary>
+    /// Envía la solicitud de cancelación al API.
+    /// Si tiene éxito, actualiza el estado de la cita localmente
+    /// sin necesidad de recargar toda la lista.
+    /// </summary>
+    /// <param name="citaId">ID de la cita a cancelar.</param>
+    private async Task ConfirmarCancelacion(int citaId)
+    {
+        cancelando = true;
+        errorCancelacion.Remove(citaId);
+
+        var error = await CitaService.CancelarCitaAsync(citaId);
+
+        cancelando = false;
+        citaCancelando = null;
+
+        if (error != null)
+        {
+            // Mostrar error puntual junto a la card de la cita
+            errorCancelacion[citaId] = error;
+        }
+        else
+        {
+            // Actualizar estado localmente — evita recargar toda la lista
+            var cita = citas.FirstOrDefault(c => c.Id == citaId);
+            if (cita != null) cita.Estado = "cancelada";
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Helpers de UI
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Una cita es cancelable si su estado es "programada" o "confirmada"
+    /// y su fecha es futura. No se pueden cancelar citas pasadas.
+    /// </summary>
+    private static bool EsCancelable(CitaResumen cita) =>
+        cita.EsProxima &&
+        (cita.Estado == "programada" || cita.Estado == "confirmada");
+
+    /// <summary>Clase CSS para colorear la franja lateral y el badge según estado.</summary>
+    private static string EstadoClase(string estado) => estado switch
+    {
+        "programada"  => "estado-programada",
+        "confirmada"  => "estado-confirmada",
+        "completada"  => "estado-completada",
+        "cancelada"   => "estado-cancelada",
+        "no_asistio"  => "estado-no-asistio",
+        _             => "estado-programada"
+    };
+
+    /// <summary>Ícono FontAwesome para el badge de estado.</summary>
+    private static string EstadoIcono(string estado) => estado switch
+    {
+        "programada"  => "fa-clock",
+        "confirmada"  => "fa-circle-check",
+        "completada"  => "fa-flag-checkered",
+        "cancelada"   => "fa-ban",
+        "no_asistio"  => "fa-user-xmark",
+        _             => "fa-clock"
+    };
+
+    /// <summary>Etiqueta legible en español para el badge de estado.</summary>
+    private static string EstadoLabel(string estado) => estado switch
+    {
+        "programada"  => "Programada",
+        "confirmada"  => "Confirmada",
+        "completada"  => "Completada",
+        "cancelada"   => "Cancelada",
+        "no_asistio"  => "No asistió",
+        _             => estado
+    };
+}

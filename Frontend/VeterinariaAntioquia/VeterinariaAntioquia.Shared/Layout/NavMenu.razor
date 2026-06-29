@@ -1,0 +1,135 @@
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthStateProvider
+
+@code {
+    [Parameter] public EventCallback OnToggleCollapse { get; set; }
+    [Parameter] public bool IsCollapsed { get; set; }
+
+    private string userRole = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        userRole = auth.User.Claims
+            .FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? "";
+    }
+
+    // Admin y Veterinario comparten el menú de gestión
+    private bool IsStaff => userRole == "administrador" || userRole == "veterinario";
+    // Solo administrador para módulos de gestión interna
+    private bool IsAdmin => userRole == "administrador";
+    
+}
+
+@* ── SIDEBAR (escritorio) ── *@
+<div class="sidebar-wrapper @(IsCollapsed ? "collapsed" : "")">
+    <div class="sidebar-inner">
+        <div class="sidebar-header">
+            <span class="brand-text">VetAntioquia</span>
+            <button class="collapse-btn"
+                    title="@(IsCollapsed ? "Expandir menú" : "Colapsar menú")"
+                    @onclick="OnToggleCollapse">
+                <span class="collapse-icon">‹</span>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+
+            @* ── Menú Staff (Admin / Veterinario) ── *@
+            @if (IsStaff)
+            {
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Inicio">
+                    <i class="fa-solid fa-house nav-icon-fa"></i>
+                    <span class="nav-label">Inicio</span>
+                </NavLink>
+
+                <NavLink class="nav-link" href="gestion" title="Gestión">
+                    <i class="fa-solid fa-table-list nav-icon-fa"></i>
+                    <span class="nav-label">Gestión</span>
+                </NavLink>
+
+                <NavLink class="nav-link" href="gestion/especies" title="Especies">
+                    <i class="fa-solid fa-paw nav-icon-fa"></i>
+                    <span class="nav-label">Especies</span>
+                </NavLink>
+
+                @if (IsAdmin)
+                {
+                    <NavLink class="nav-link" href="inventario" title="Inventario">
+                        <i class="fa-solid fa-boxes-stacked nav-icon-fa"></i>
+                        <span class="nav-label">Inventario</span>
+                    </NavLink>
+                }
+
+                <NavLink class="nav-link" href="configuracion" title="Configuración">
+                    <i class="fa-solid fa-gear nav-icon-fa"></i>
+                    <span class="nav-label">Citas</span>
+                </NavLink>
+            }
+            else
+            {
+                @* ── Menú Usuario / No autenticado ── *@
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Inicio">
+                    <i class="fa-solid fa-house nav-icon-fa"></i>
+                    <span class="nav-label">Inicio</span>
+                </NavLink>
+
+                <NavLink class="nav-link" href="citas" title="Citas">
+                    <i class="fa-solid fa-calendar-plus nav-icon-fa"></i>
+                    <span class="nav-label">Citas</span>
+                </NavLink>
+
+                <!--<NavLink class="nav-link" href="mascotas" title="Mascotas">
+                    <i class="fa-solid fa-paw nav-icon-fa"></i>
+                    <span class="nav-label">Mascotas</span>
+                </NavLink>-->
+            }
+
+        </nav>
+    </div>
+</div>
+
+@* ── BOTTOM NAV (móvil) ── *@
+<nav class="bottom-nav">
+    @if (IsStaff)
+    {
+        <NavLink class="bottom-nav-link" href="" Match="NavLinkMatch.All">
+            <i class="fa-solid fa-house nav-icon-fa"></i>
+            <span class="bottom-nav-label">Inicio</span>
+        </NavLink>
+        <NavLink class="bottom-nav-link" href="gestion">
+            <i class="fa-solid fa-table-list nav-icon-fa"></i>
+            <span class="bottom-nav-label">Gestión</span>
+        </NavLink>
+        <NavLink class="bottom-nav-link" href="gestion/especies">
+            <i class="fa-solid fa-paw nav-icon-fa"></i>
+            <span class="bottom-nav-label">Especies</span>
+        </NavLink>
+        @if (IsAdmin)
+        {
+            <NavLink class="bottom-nav-link" href="inventario">
+                <i class="fa-solid fa-boxes-stacked nav-icon-fa"></i>
+                <span class="bottom-nav-label">Inventario</span>
+            </NavLink>
+        }
+        <NavLink class="bottom-nav-link" href="configuracion">
+            <i class="fa-solid fa-gear nav-icon-fa"></i>
+            <span class="bottom-nav-label">Config.</span>
+        </NavLink>
+    }
+    else
+    {
+        <NavLink class="bottom-nav-link" href="citas">
+            <i class="fa-solid fa-calendar-plus nav-icon-fa"></i>
+            <span class="bottom-nav-label">Citas</span>
+        </NavLink>
+        <NavLink class="bottom-nav-link" href="" Match="NavLinkMatch.All">
+            <i class="fa-solid fa-house nav-icon-fa"></i>
+            <span class="bottom-nav-label">Inicio</span>
+        </NavLink>
+        <!--<NavLink class="bottom-nav-link" href="weather">
+            <i class="fa-solid fa-paw nav-icon-fa"></i>
+            <span class="bottom-nav-label">Mascotas</span>
+        </NavLink>-->
+    }
+</nav>

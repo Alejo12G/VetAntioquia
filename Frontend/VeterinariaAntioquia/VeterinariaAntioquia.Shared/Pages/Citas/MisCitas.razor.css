@@ -1,0 +1,514 @@
+﻿/* ═══════════════════════════════════════════════════════════════
+   MisCitas.razor.css — Estilos del listado de citas
+   Scope: solo aplica al componente MisCitas.razor
+
+   Paleta de estados:
+     · programada  → azul   (#3b82f6)
+     · confirmada  → verde  (#00bf63)
+     · completada  → gris   (#64748b)
+     · cancelada   → rojo   (#ef4444)
+     · no_asistio  → naranja(#f97316)
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Contenedor principal ─────────────────────────────────── */
+.mc-wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 6rem; /* 6rem para bottom-nav en móvil */
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* ── Encabezado ───────────────────────────────────────────── */
+.mc-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.mc-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #111;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.mc-sub {
+    font-size: 0.78rem;
+    color: #888;
+    margin: 0.1rem 0 0;
+}
+
+/* ── Botón nueva cita ─────────────────────────────────────── */
+.mc-btn-nueva {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #00bf63;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.18s, transform 0.1s;
+    flex-shrink: 0;
+}
+
+.mc-btn-nueva:hover {
+    background: #009d52;
+    transform: translateY(-1px);
+}
+
+/* Variante outline para el estado vacío */
+.mc-btn-nueva.outline {
+    background: transparent;
+    color: #00bf63;
+    border: 1.5px solid #00bf63;
+}
+
+.mc-btn-nueva.outline:hover {
+    background: #f0faf4;
+}
+
+/* ── Error global ─────────────────────────────────────────── */
+.mc-error {
+    background: #fff3f3;
+    border: 1px solid #ffd0d0;
+    border-radius: 10px;
+    color: #c0392b;
+    font-size: 0.85rem;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.mc-error a {
+    color: #c0392b;
+    font-weight: 700;
+    margin-left: 0.25rem;
+}
+
+/* ── Carga ────────────────────────────────────────────────── */
+.mc-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: #888;
+    font-size: 0.9rem;
+    padding: 2rem 0;
+    justify-content: center;
+}
+
+/* ── Estado vacío ─────────────────────────────────────────── */
+.mc-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 3rem 1rem;
+    text-align: center;
+}
+
+.mc-empty-ico {
+    width: 4rem;
+    height: 4rem;
+    background: #f0faf4;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mc-empty-ico i {
+    font-size: 1.75rem;
+    color: #00bf63;
+}
+
+.mc-empty-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+}
+
+.mc-empty-sub {
+    font-size: 0.85rem;
+    color: #888;
+    margin: 0;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+.mc-tabs {
+    display: flex;
+    border-bottom: 2px solid #e8e8e8;
+    gap: 0;
+}
+
+.mc-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #999;
+    cursor: pointer;
+    transition: color 0.18s, border-color 0.18s;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.mc-tab:hover {
+    color: #333;
+}
+
+.mc-tab.active {
+    color: #00bf63;
+    border-bottom-color: #00bf63;
+}
+
+/* Badge con cantidad de citas próximas */
+.mc-tab-badge {
+    background: #00bf63;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: 20px;
+    padding: 0.1rem 0.45rem;
+    line-height: 1.4;
+}
+
+/* Mensaje cuando la tab está vacía */
+.mc-tab-vacio {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #bbb;
+    font-size: 0.88rem;
+    padding: 2rem 0;
+    justify-content: center;
+}
+
+/* ── Lista de cards ───────────────────────────────────────── */
+.mc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ── Card individual ──────────────────────────────────────── */
+.mc-card {
+    background: #fff;
+    border: 1.5px solid #e8e8e8;
+    border-radius: 12px;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+    transition: box-shadow 0.18s;
+}
+
+.mc-card:hover {
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.07);
+}
+
+/* Citas pasadas se atenúan levemente */
+.mc-card.pasada {
+    opacity: 0.75;
+}
+
+/* ── Franja lateral de color según estado ─────────────────── */
+.mc-card-accent {
+    width: 4px;
+    flex-shrink: 0;
+}
+
+.mc-card-accent.estado-programada  { background: #3b82f6; }
+.mc-card-accent.estado-confirmada  { background: #00bf63; }
+.mc-card-accent.estado-completada  { background: #64748b; }
+.mc-card-accent.estado-cancelada   { background: #ef4444; }
+.mc-card-accent.estado-no-asistio  { background: #f97316; }
+
+/* ── Bloque de fecha ──────────────────────────────────────── */
+.mc-fecha-bloque {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 0.85rem;
+    min-width: 64px;
+    background: #fafafa;
+    border-right: 1px solid #f0f0f0;
+    flex-shrink: 0;
+    gap: 0.05rem;
+}
+
+.mc-fecha-dia {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #111;
+    line-height: 1;
+}
+
+.mc-fecha-mes {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #888;
+    letter-spacing: 0.06em;
+}
+
+.mc-fecha-hora {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #00bf63;
+    margin-top: 0.25rem;
+}
+
+/* ── Cuerpo de la card ────────────────────────────────────── */
+.mc-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.9rem 1rem;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Fila superior: nombre del servicio + badge de estado */
+.mc-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.mc-servicio-nombre {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #111;
+    line-height: 1.3;
+}
+
+/* ── Badge de estado ──────────────────────────────────────── */
+.mc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.mc-badge.estado-programada  { background: #eff6ff; color: #3b82f6; }
+.mc-badge.estado-confirmada  { background: #f0faf4; color: #00bf63; }
+.mc-badge.estado-completada  { background: #f1f5f9; color: #64748b; }
+.mc-badge.estado-cancelada   { background: #fef2f2; color: #ef4444; }
+.mc-badge.estado-no-asistio  { background: #fff7ed; color: #f97316; }
+
+/* ── Meta de la cita (vet, mascota, duración, precio) ─────── */
+.mc-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.85rem;
+    font-size: 0.78rem;
+    color: #666;
+}
+
+.mc-card-meta i {
+    font-size: 0.72rem;
+    color: #00bf63;
+    margin-right: 0.2rem;
+}
+
+.mc-precio {
+    font-weight: 700;
+    color: #00bf63;
+}
+
+/* ── Motivo ───────────────────────────────────────────────── */
+.mc-motivo {
+    font-size: 0.78rem;
+    color: #888;
+    margin: 0.1rem 0 0;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.mc-motivo i {
+    font-size: 0.72rem;
+    margin-right: 0.25rem;
+    color: #bbb;
+}
+
+/* ── Botón cancelar ───────────────────────────────────────── */
+.mc-btn-cancelar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: transparent;
+    border: 1.5px solid #fca5a5;
+    border-radius: 7px;
+    color: #ef4444;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    cursor: pointer;
+    margin-top: 0.25rem;
+    transition: background 0.15s, border-color 0.15s;
+    width: fit-content;
+}
+
+.mc-btn-cancelar:hover {
+    background: #fef2f2;
+    border-color: #ef4444;
+}
+
+/* ── Confirmación inline de cancelación ──────────────────── */
+.mc-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: #fff8f8;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    margin-top: 0.25rem;
+}
+
+.mc-confirm-txt {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #b91c1c;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.mc-confirm-txt i {
+    color: #f97316;
+}
+
+.mc-confirm-btns {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.mc-btn-confirmar {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.4rem 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.mc-btn-confirmar:hover:not(:disabled) { background: #dc2626; }
+.mc-btn-confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.mc-btn-volver {
+    background: transparent;
+    border: 1.5px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #555;
+    padding: 0.4rem 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.mc-btn-volver:hover:not(:disabled) { border-color: #9ca3af; }
+.mc-btn-volver:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Error puntual de cancelación ────────────────────────── */
+.mc-inline-error {
+    font-size: 0.78rem;
+    color: #ef4444;
+    margin: 0.1rem 0 0;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+/* ── Spinner ──────────────────────────────────────────────── */
+.mc-spinner {
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 2px solid rgba(0, 191, 99, 0.25);
+    border-top-color: #00bf63;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.mc-spinner.xs {
+    width: 0.85rem;
+    height: 0.85rem;
+    border-width: 2px;
+    border-top-color: #fff;
+    border-color: rgba(255,255,255,0.3);
+    border-top-color: #fff;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .mc-wrap {
+        padding: 1.25rem 1rem 6rem;
+    }
+
+    /* En pantallas muy pequeñas, ocultar el texto del botón nueva cita */
+    .mc-btn-nueva span {
+        display: none;
+    }
+
+    .mc-btn-nueva {
+        padding: 0.6rem 0.85rem;
+        border-radius: 50%;
+    }
+
+    .mc-fecha-bloque {
+        min-width: 54px;
+        padding: 0.75rem 0.6rem;
+    }
+
+    .mc-fecha-dia {
+        font-size: 1.3rem;
+    }
+}
+
+@media (min-width: 641px) {
+    .mc-wrap {
+        padding: 2rem 1.5rem 3rem;
+    }
+}
+
+/* ── Respeta preferencia de movimiento reducido ───────────── */
+@media (prefers-reduced-motion: reduce) {
+    .mc-spinner {
+        animation: none;
+    }
+}

@@ -1,0 +1,307 @@
+@* ═══════════════════════════════════════════════════════════════
+   Gestion.razor — Panel de gestión para veterinarios
+   Ruta: /gestion
+
+   Muestra las citas asignadas al veterinario autenticado,
+   separadas en tabs: Pendientes (próximas) y Historial (pasadas).
+
+   Acceso: solo usuarios con rol "veterinario" o "administrador".
+═══════════════════════════════════════════════════════════════ *@
+
+@page "/gestion"
+@using VeterinariaAntioquia.Shared.Models
+@using VeterinariaAntioquia.Shared.Services
+@using System.Security.Claims
+@using System.Globalization
+@inject CitaService CitaService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Gestión — VetAntioquia</PageTitle>
+
+<div class="gs-wrap">
+
+    @* ── Encabezado ────────────────────────────────────── *@
+    <div class="gs-header">
+        <div class="gs-header-text">
+            <h1 class="gs-title">
+                <i class="fa-solid fa-stethoscope"></i>
+                Gestión de citas
+            </h1>
+            <p class="gs-sub">Citas asignadas a ti como veterinario</p>
+        </div>
+    </div>
+
+    @* ── Error global ────────────────────────────────────── *@
+    @if (!string.IsNullOrEmpty(errorGlobal))
+    {
+        <div class="gs-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            @errorGlobal
+            @if (errorGlobal.Contains("Sesión"))
+            {
+                <a href="/auth/login">Iniciar sesión</a>
+            }
+        </div>
+    }
+
+    @* ── Estado de carga ─────────────────────────────────── *@
+    @if (cargando)
+    {
+        <div class="gs-loading">
+            <span class="gs-spinner"></span>
+            Cargando tus citas asignadas…
+        </div>
+    }
+    else if (!citas.Any())
+    {
+        @* ── Estado vacío ────────────────────────────────── *@
+        <div class="gs-empty">
+            <div class="gs-empty-ico">
+                <i class="fa-regular fa-calendar-check"></i>
+            </div>
+            <h3 class="gs-empty-title">No tienes citas asignadas</h3>
+            <p class="gs-empty-sub">Cuando un cliente agende una cita contigo, aparecerá aquí.</p>
+        </div>
+    }
+    else
+    {
+        @* ── Resumen rápido ───────────────────────────────── *@
+        <div class="gs-stats">
+            <div class="gs-stat-card">
+                <span class="gs-stat-num">@CitasPendientes.Count()</span>
+                <span class="gs-stat-label">Pendientes</span>
+            </div>
+            <div class="gs-stat-card hoy">
+                <span class="gs-stat-num">@CitasHoy.Count()</span>
+                <span class="gs-stat-label">Hoy</span>
+            </div>
+            <div class="gs-stat-card total">
+                <span class="gs-stat-num">@citas.Count</span>
+                <span class="gs-stat-label">Total</span>
+            </div>
+        </div>
+
+        @* ── Tabs Pendientes / Historial ──────────────────── *@
+        <div class="gs-tabs">
+            <button class="gs-tab @(tabActiva == "pendientes" ? "active" : "")"
+                    @onclick='() => tabActiva = "pendientes"'>
+                Pendientes
+                @if (CitasPendientes.Any())
+                {
+                    <span class="gs-tab-badge">@CitasPendientes.Count()</span>
+                }
+            </button>
+            <button class="gs-tab @(tabActiva == "historial" ? "active" : "")"
+                    @onclick='() => tabActiva = "historial"'>
+                Historial
+            </button>
+        </div>
+
+        @* ── Lista de citas ──────────────────────────────── *@
+        <div class="gs-list">
+
+            @{
+                var citasMostradas = tabActiva == "pendientes"
+                    ? CitasPendientes
+                    : CitasHistorial;
+            }
+
+            @if (!citasMostradas.Any())
+            {
+                <div class="gs-tab-vacio">
+                    <i class="fa-regular fa-calendar"></i>
+                    @(tabActiva == "pendientes"
+                        ? "No tienes citas pendientes."
+                        : "No tienes citas en el historial.")
+                </div>
+            }
+            else
+            {
+                @foreach (var cita in citasMostradas)
+                {
+                    <div class="gs-card @(cita.EsPasada ? "pasada" : "")">
+
+                        @* Franja lateral de color según estado *@
+                        <div class="gs-card-accent @EstadoClase(cita.Estado)"></div>
+
+                        @* Bloque de fecha *@
+                        <div class="gs-fecha-bloque">
+                            <span class="gs-fecha-dia">
+                                @cita.Fecha.ToString("dd", CultureInfo.GetCultureInfo("es-CO"))
+                            </span>
+                            <span class="gs-fecha-mes">
+                                @cita.Fecha.ToString("MMM", CultureInfo.GetCultureInfo("es-CO")).ToUpper()
+                            </span>
+                            <span class="gs-fecha-hora">
+                                @cita.Fecha.ToString("HH:mm")
+                            </span>
+                        </div>
+
+                        @* Contenido principal *@
+                        <div class="gs-card-body">
+
+                            @* Servicio + badge de estado *@
+                            <div class="gs-card-top">
+                                <span class="gs-servicio-nombre">@cita.ServicioNombre</span>
+                                <span class="gs-badge @EstadoClase(cita.Estado)">
+                                    <i class="fa-solid @EstadoIcono(cita.Estado)"></i>
+                                    @EstadoLabel(cita.Estado)
+                                </span>
+                            </div>
+
+                            @* Detalles: cliente, mascota, duración *@
+                            <div class="gs-card-meta">
+                                <span>
+                                    <i class="fa-solid fa-user"></i>
+                                    @cita.ClienteNombre
+                                </span>
+                                <span>
+                                    <i class="fa-solid fa-paw"></i>
+                                    @(cita.MascotaNombre ?? "Sin mascota")
+                                </span>
+                                <span>
+                                    <i class="fa-regular fa-clock"></i>
+                                    @cita.DuracionMinutos min
+                                </span>
+                                <span class="gs-precio">
+                                    <i class="fa-solid fa-tag"></i>
+                                    $@cita.ServicioPrecioBase.ToString("N0")
+                                </span>
+                            </div>
+
+                            @* Motivo (si existe) *@
+                            @if (!string.IsNullOrEmpty(cita.Motivo))
+                            {
+                                <p class="gs-motivo">
+                                    <i class="fa-regular fa-note-sticky"></i>
+                                    @cita.Motivo
+                                </p>
+                            }
+
+                            @* Botón Entrar (solo citas activas) *@
+                            @if (cita.Estado == "programada" || cita.Estado == "confirmada")
+                            {
+                                <button class="gs-btn-entrar"
+                                        @onclick='() => Navigation.NavigateTo($"/gestion/consulta/{cita.Id}")'>
+                                    <i class="fa-solid fa-door-open"></i>
+                                    Entrar a consulta
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    // ──────────────────────────────────────────────────────────
+    //  Estado del componente
+    // ──────────────────────────────────────────────────────────
+
+    private List<CitaVeterinarioResumen> citas = new();
+    private string tabActiva = "pendientes";
+    private bool cargando = true;
+    private string errorGlobal = "";
+
+    // ──────────────────────────────────────────────────────────
+    //  Proyecciones filtradas
+    // ──────────────────────────────────────────────────────────
+
+    private IEnumerable<CitaVeterinarioResumen> CitasPendientes =>
+        citas.Where(c => c.EsProxima).OrderBy(c => c.Fecha);
+
+    private IEnumerable<CitaVeterinarioResumen> CitasHistorial =>
+        citas.Where(c => c.EsPasada).OrderByDescending(c => c.Fecha);
+
+    private IEnumerable<CitaVeterinarioResumen> CitasHoy =>
+        citas.Where(c => c.Fecha.Date == DateTime.Today &&
+                         (c.Estado == "programada" || c.Estado == "confirmada"));
+
+    // ──────────────────────────────────────────────────────────
+    //  Lifecycle
+    // ──────────────────────────────────────────────────────────
+
+    protected override Task OnInitializedAsync() => Task.CompletedTask;
+
+    private bool _cargaRealizada = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _cargaRealizada) return;
+        _cargaRealizada = true;
+
+        // Guard de autenticación + autorización por rol
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (!user.Identity?.IsAuthenticated ?? true)
+        {
+            Navigation.NavigateTo("/auth/login", forceLoad: false);
+            return;
+        }
+
+        var rol = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? "";
+        if (rol != "veterinario" && rol != "administrador")
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        await CargarCitas();
+        StateHasChanged();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Métodos de datos
+    // ──────────────────────────────────────────────────────────
+
+    private async Task CargarCitas()
+    {
+        cargando = true;
+        var (data, error) = await CitaService.GetCitasAsignadasAsync();
+
+        if (error != null)
+            errorGlobal = error;
+        else
+            citas = data;
+
+        cargando = false;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Helpers de UI
+    // ──────────────────────────────────────────────────────────
+
+    private static string EstadoClase(string estado) => estado switch
+    {
+        "programada"  => "estado-programada",
+        "confirmada"  => "estado-confirmada",
+        "completada"  => "estado-completada",
+        "cancelada"   => "estado-cancelada",
+        "no_asistio"  => "estado-no-asistio",
+        _             => "estado-programada"
+    };
+
+    private static string EstadoIcono(string estado) => estado switch
+    {
+        "programada"  => "fa-clock",
+        "confirmada"  => "fa-circle-check",
+        "completada"  => "fa-flag-checkered",
+        "cancelada"   => "fa-ban",
+        "no_asistio"  => "fa-user-xmark",
+        _             => "fa-clock"
+    };
+
+    private static string EstadoLabel(string estado) => estado switch
+    {
+        "programada"  => "Programada",
+        "confirmada"  => "Confirmada",
+        "completada"  => "Completada",
+        "cancelada"   => "Cancelada",
+        "no_asistio"  => "No asistió",
+        _             => estado
+    };
+}

@@ -1,0 +1,562 @@
+﻿@page "/citas/nueva"
+@using VeterinariaAntioquia.Shared.Models
+@using VeterinariaAntioquia.Shared.Services
+@inject CitaService CitaService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Nueva cita — VetAntioquia</PageTitle>
+
+<div class="nc-wrap">
+
+    @* ── Encabezado ── *@
+    <div class="nc-header">
+        <button class="nc-back" @onclick='() => Navigation.NavigateTo("/")'>
+            <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <div>
+            <h1 class="nc-title">Nueva cita</h1>
+            <p class="nc-sub">Paso @paso de 4</p>
+        </div>
+    </div>
+
+    @* ── Barra de progreso ── *@
+    <div class="nc-progress">
+        <div class="nc-progress-bar" style="width: @(paso * 25)%"></div>
+    </div>
+
+    @* ── Error global (ej: 401 sesión expirada) ── *@
+    @if (!string.IsNullOrEmpty(errorGlobal))
+    {
+        <div class="nc-error" style="margin-bottom:1rem">
+            <i class="fa-solid fa-circle-exclamation"></i> @errorGlobal
+            <a href="/auth/login" style="margin-left:.5rem;color:#c0392b;font-weight:700">
+                Iniciar sesión
+            </a>
+        </div>
+    }
+
+    @* ══════════════════════════════
+       PASO 1 — Mascota
+    ══════════════════════════════ *@
+    @if (paso == 1)
+    {
+        <div class="nc-step">
+            <h2 class="step-title">
+                <i class="fa-solid fa-paw"></i> ¿Para cuál mascota?
+            </h2>
+
+            @if (cargandoMascotas)
+            {
+                <div class="nc-loading">
+                    <span class="nc-spinner"></span> Cargando mascotas…
+                </div>
+            }
+            else
+            {
+                @* Grid de mascotas registradas (si tiene) *@
+                @if (mascotas.Any())
+                {
+                    <div class="mascota-grid">
+                        @foreach (var m in mascotas)
+                        {
+                            <button class="mascota-card @(mascotaSeleccionada?.Id == m.Id ? "selected" : "") @(sinMascota ? "dimmed" : "")"
+                                    @onclick="() => SeleccionarMascota(m)">
+                                <div class="mascota-avatar">
+                                    @if (!string.IsNullOrEmpty(m.FotoUrl))
+                                    {
+                                        <img src="@m.FotoUrl" alt="@m.Nombre" />
+                                    }
+                                    else
+                                    {
+                                        <i class="fa-solid fa-dog"></i>
+                                    }
+                                </div>
+                                <div class="mascota-info">
+                                    <span class="mascota-nombre">@m.Nombre</span>
+                                    @if (m.EdadAnios.HasValue)
+                                    {
+                                        <span class="mascota-edad">@m.EdadAnios años</span>
+                                    }
+                                    <span class="mascota-sexo">
+                                        <i class="fa-solid @(m.Sexo == "macho" ? "fa-mars" : "fa-venus")"></i>
+                                        @m.Sexo
+                                    </span>
+                                </div>
+                                @if (mascotaSeleccionada?.Id == m.Id)
+                                {
+                                    <i class="mascota-check fa-solid fa-circle-check"></i>
+                                }
+                            </button>
+                        }
+                    </div>
+                }
+
+                @* Opción sin mascota — siempre visible *@
+                <button class="sin-mascota-btn @(sinMascota ? "selected" : "")"
+                        @onclick="ToggleSinMascota">
+                    <div class="sin-mascota-ico">
+                        <i class="fa-solid @(sinMascota ? "fa-circle-check" : "fa-circle-question")"></i>
+                    </div>
+                    <div class="sin-mascota-body">
+                        <span class="sin-mascota-titulo">
+                            @(mascotas.Any() ? "Mi mascota no está en la lista" : "No tengo mascota registrada aún")
+                        </span>
+                        <span class="sin-mascota-sub">
+                            El veterinario tomará los datos en consulta
+                        </span>
+                    </div>
+                </button>
+            }
+        </div>
+    }
+
+    @* ══════════════════════════════
+       PASO 2 — Servicio
+    ══════════════════════════════ *@
+    @if (paso == 2)
+    {
+        <div class="nc-step">
+            <h2 class="step-title">
+                <i class="fa-solid fa-stethoscope"></i> ¿Qué servicio necesitas?
+            </h2>
+
+            <div class="cat-filter">
+                <button class="cat-btn @(categoriaFiltro == "" ? "active" : "")"
+                        @onclick='() => categoriaFiltro = ""'>Todos</button>
+                @foreach (var cat in categorias)
+                {
+                    <button class="cat-btn @(categoriaFiltro == cat ? "active" : "")"
+                            @onclick="() => categoriaFiltro = cat">
+                        @CatLabel(cat)
+                    </button>
+                }
+            </div>
+
+            @if (cargandoServicios)
+            {
+                <div class="nc-loading"><span class="nc-spinner"></span> Cargando servicios…</div>
+            }
+            else
+            {
+                <div class="servicio-list">
+                    @foreach (var s in ServiciosFiltrados)
+                    {
+                        <button class="servicio-item @(servicioSeleccionado?.Id == s.Id ? "selected" : "")"
+                                @onclick="() => SeleccionarServicio(s)">
+                            <div class="servicio-ico">
+                                <i class="fa-solid @CatIcon(s.Categoria)"></i>
+                            </div>
+                            <div class="servicio-body">
+                                <span class="servicio-nombre">@s.Nombre</span>
+                                @if (!string.IsNullOrEmpty(s.Descripcion))
+                                {
+                                    <span class="servicio-desc">@s.Descripcion</span>
+                                }
+                                <div class="servicio-meta">
+                                    <span><i class="fa-regular fa-clock"></i> @s.DuracionEstimadaMin min</span>
+                                    <span class="servicio-precio">$@s.PrecioBase.ToString("N0")</span>
+                                </div>
+                            </div>
+                            @if (servicioSeleccionado?.Id == s.Id)
+                            {
+                                <i class="item-check fa-solid fa-circle-check"></i>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @* ══════════════════════════════
+       PASO 3 — Veterinario + Fecha/Hora
+    ══════════════════════════════ *@
+    @if (paso == 3)
+    {
+        <div class="nc-step">
+            <h2 class="step-title">
+                <i class="fa-solid fa-user-doctor"></i> Veterinario y horario
+            </h2>
+
+            <label class="field-label">Veterinario</label>
+            <div class="vet-list">
+                @foreach (var v in veterinarios)
+                {
+                    <button class="vet-item @(vetSeleccionado?.Id == v.Id ? "selected" : "")"
+                            @onclick="() => SeleccionarVeterinario(v)">
+                        <div class="vet-avatar">@v.Nombre[0]</div>
+                        <div class="vet-info">
+                            <span class="vet-nombre">@v.Nombre</span>
+                            @if (!string.IsNullOrEmpty(v.Telefono))
+                            {
+                                <span class="vet-tel">@v.Telefono</span>
+                            }
+                        </div>
+                        @if (vetSeleccionado?.Id == v.Id)
+                        {
+                            <i class="item-check fa-solid fa-circle-check"></i>
+                        }
+                    </button>
+                }
+            </div>
+
+            @if (vetSeleccionado != null)
+            {
+                <label class="field-label" style="margin-top:1.25rem">Fecha</label>
+                <input type="date"
+                       class="nc-input"
+                       min="@DateTime.Today.ToString("yyyy-MM-dd")"
+                       max="@DateTime.Today.AddMonths(2).ToString("yyyy-MM-dd")"
+                       @bind="fechaSeleccionada"
+                       @bind:after="CargarDisponibilidad" />
+
+                @if (fechaSeleccionada != default)
+                {
+                    <label class="field-label" style="margin-top:1.25rem">Hora disponible</label>
+
+                    @if (cargandoDisponibilidad)
+                    {
+                        <div class="nc-loading"><span class="nc-spinner"></span> Verificando disponibilidad…</div>
+                    }
+                    else
+                    {
+                        <div class="slots-grid">
+                            @foreach (var slot in SlotsDelDia)
+                            {
+                                var ocupado = EsSlotOcupado(slot);
+                                <button class="slot @(horaSeleccionada == slot ? "selected" : "") @(ocupado ? "ocupado" : "")"
+                                        disabled="@ocupado"
+                                        @onclick="() => horaSeleccionada = slot">
+                                    @slot.ToString("HH:mm")
+                                </button>
+                            }
+                        </div>
+                        <div class="slots-legend">
+                            <span class="legend-dot libre"></span> Disponible
+                            <span class="legend-dot ocupado" style="margin-left:.75rem"></span> Ocupado
+                        </div>
+                    }
+                }
+            }
+        </div>
+    }
+
+    @* ══════════════════════════════
+       PASO 4 — Motivo + Confirmación
+    ══════════════════════════════ *@
+    @if (paso == 4)
+    {
+        <div class="nc-step">
+            <h2 class="step-title">
+                <i class="fa-solid fa-clipboard-check"></i> Confirmar cita
+            </h2>
+
+            <div class="resumen">
+                <div class="resumen-row">
+                    <span class="resumen-label"><i class="fa-solid fa-paw"></i> Mascota</span>
+                    <span class="resumen-val">
+                        @(sinMascota ? "Sin especificar (el vet toma los datos)" : mascotaSeleccionada?.Nombre)
+                    </span>
+                </div>
+                <div class="resumen-row">
+                    <span class="resumen-label"><i class="fa-solid fa-stethoscope"></i> Servicio</span>
+                    <span class="resumen-val">@servicioSeleccionado?.Nombre</span>
+                </div>
+                <div class="resumen-row">
+                    <span class="resumen-label"><i class="fa-solid fa-user-doctor"></i> Veterinario</span>
+                    <span class="resumen-val">@vetSeleccionado?.Nombre</span>
+                </div>
+                <div class="resumen-row">
+                    <span class="resumen-label"><i class="fa-regular fa-calendar"></i> Fecha</span>
+                    <span class="resumen-val">
+                        @FechaHoraFinal.ToString("dddd d 'de' MMMM 'a las' HH:mm",
+                            new System.Globalization.CultureInfo("es-CO"))
+                    </span>
+                </div>
+                <div class="resumen-row">
+                    <span class="resumen-label"><i class="fa-regular fa-clock"></i> Duración</span>
+                    <span class="resumen-val">@servicioSeleccionado?.DuracionEstimadaMin min</span>
+                </div>
+                <div class="resumen-row">
+                    <span class="resumen-label"><i class="fa-solid fa-tag"></i> Precio base</span>
+                    <span class="resumen-val resumen-precio">$@servicioSeleccionado?.PrecioBase.ToString("N0")</span>
+                </div>
+            </div>
+
+            <label class="field-label" style="margin-top:1.25rem">
+                Motivo de la consulta <span class="field-opt">(opcional)</span>
+            </label>
+            <textarea class="nc-textarea"
+                      placeholder="Describe brevemente el motivo o síntomas que presenta tu mascota…"
+                      maxlength="500"
+                      @bind="motivo"
+                      rows="3"></textarea>
+            <span class="nc-char-count">@(motivo?.Length ?? 0)/500</span>
+
+            @if (!string.IsNullOrEmpty(errorEnvio))
+            {
+                <div class="nc-error">
+                    <i class="fa-solid fa-circle-exclamation"></i> @errorEnvio
+                </div>
+            }
+
+            @if (citaCreada)
+            {
+                <div class="nc-success">
+                    <i class="fa-solid fa-circle-check"></i>
+                    ¡Cita agendada! Te esperamos el
+                    @FechaHoraFinal.ToString("d 'de' MMMM 'a las' HH:mm",
+                        new System.Globalization.CultureInfo("es-CO")).
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Controles de navegación ── *@
+    <div class="nc-nav">
+        @if (paso > 1 && !citaCreada)
+        {
+            <button class="nc-btn-ghost" @onclick="PasoAnterior">
+                <i class="fa-solid fa-arrow-left"></i> Atrás
+            </button>
+        }
+        else
+        {
+            <span></span>
+        }
+
+        @if (paso < 4 && !citaCreada)
+        {
+            <button class="nc-btn-primary" @onclick="PasoSiguiente" disabled="@(!PuedeContinuar)">
+                Continuar <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        }
+        else if (paso == 4 && !citaCreada)
+        {
+            <button class="nc-btn-primary" @onclick="Confirmar" disabled="@enviando">
+                @if (enviando)
+                {
+                    <span class="nc-spinner sm"></span>
+                }
+                else
+                {
+                    <span><i class="fa-solid fa-calendar-check"></i> Confirmar cita</span>
+                }
+            </button>
+        }
+        else if (citaCreada)
+        {
+            <button class="nc-btn-primary" @onclick='() => Navigation.NavigateTo("/")'>
+                Ir al inicio <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        }
+    </div>
+
+</div>
+
+@code {
+    // ── Estado wizard ──────────────────────────
+    private int paso = 1;
+
+    // ── Datos ──────────────────────────────────
+    private List<Mascota>     mascotas      = new();
+    private List<Servicio>    servicios     = new();
+    private List<Veterinario> veterinarios  = new();
+    private List<SlotOcupado> slotsOcupados = new();
+
+    // ── Selecciones ────────────────────────────
+    private Mascota?     mascotaSeleccionada  = null;
+    private bool         sinMascota           = false; // true = cita sin mascota específica
+    private Servicio?    servicioSeleccionado = null;
+    private Veterinario? vetSeleccionado      = null;
+    private DateTime     fechaSeleccionada    = default;
+    private DateTime     horaSeleccionada     = default;
+    private string       motivo               = "";
+    private string       categoriaFiltro      = "";
+
+    // ── Estados ────────────────────────────────
+    private bool   cargandoMascotas       = true;
+    private bool   cargandoServicios      = true;
+    private bool   cargandoDisponibilidad = false;
+    private bool   enviando               = false;
+    private bool   citaCreada             = false;
+    private string errorEnvio             = "";
+    private string errorGlobal            = ""; // Para errores 401
+
+    // ── Categorías únicas para filtro ─────────
+    private List<string> categorias => servicios
+        .Select(s => s.Categoria).Distinct().OrderBy(c => c).ToList();
+
+    private IEnumerable<Servicio> ServiciosFiltrados => string.IsNullOrEmpty(categoriaFiltro)
+        ? servicios
+        : servicios.Where(s => s.Categoria == categoriaFiltro);
+
+    // ── Slots 07:00–17:30, cada 30 min ────────
+    private IEnumerable<DateTime> SlotsDelDia
+    {
+        get
+        {
+            var inicio = fechaSeleccionada.Date.AddHours(7);
+            for (int i = 0; i < 22; i++)
+                yield return inicio.AddMinutes(i * 30);
+        }
+    }
+
+    private DateTime FechaHoraFinal => fechaSeleccionada.Date
+        .AddHours(horaSeleccionada.Hour)
+        .AddMinutes(horaSeleccionada.Minute);
+
+    private bool PuedeContinuar => paso switch
+    {
+        // Puede continuar si eligió una mascota O eligió "sin mascota"
+        1 => mascotaSeleccionada != null || sinMascota,
+        2 => servicioSeleccionado != null,
+        3 => vetSeleccionado != null && fechaSeleccionada != default && horaSeleccionada != default,
+        _ => false
+    };
+
+    // ── Inicialización ────────────────────────────────────────
+    // OnInitializedAsync corre durante el prerender (sin JS).
+    // La carga real se hace en OnAfterRenderAsync cuando JS ya está listo.
+    protected override Task OnInitializedAsync() => Task.CompletedTask;
+
+    private bool _cargaRealizada = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _cargaRealizada) return;
+        _cargaRealizada = true;
+
+        // Guard de autenticación — aquí JS ya está disponible
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (!authState.User.Identity?.IsAuthenticated ?? true)
+        {
+            Navigation.NavigateTo("/auth/login", forceLoad: false);
+            return;
+        }
+
+        await Task.WhenAll(CargarMascotas(), CargarServicios(), CargarVeterinarios());
+        StateHasChanged(); // re-render con los datos cargados
+    }
+
+    private async Task CargarMascotas()
+    {
+        cargandoMascotas = true;
+        var (data, error) = await CitaService.GetMisMascotasAsync();
+        if (error != null) errorGlobal = error;
+        mascotas = data;
+        cargandoMascotas = false;
+    }
+
+    private async Task CargarServicios()
+    {
+        cargandoServicios = true;
+        var (data, error) = await CitaService.GetServiciosAsync();
+        if (error != null) errorGlobal = error;
+        servicios = data;
+        cargandoServicios = false;
+    }
+
+    private async Task CargarVeterinarios()
+    {
+        var (data, error) = await CitaService.GetVeterinariosAsync();
+        if (error != null) errorGlobal = error;
+        veterinarios = data;
+    }
+
+    private async Task CargarDisponibilidad()
+    {
+        if (vetSeleccionado == null || fechaSeleccionada == default) return;
+        cargandoDisponibilidad = true;
+        horaSeleccionada = default;
+        var (data, error) = await CitaService.GetDisponibilidadAsync(vetSeleccionado.Id, fechaSeleccionada);
+        if (error != null) errorGlobal = error;
+        slotsOcupados = data;
+        cargandoDisponibilidad = false;
+    }
+
+    private bool EsSlotOcupado(DateTime slot)
+    {
+        var duracion = servicioSeleccionado?.DuracionEstimadaMin ?? 30;
+        var fin = slot.AddMinutes(duracion);
+        return slotsOcupados.Any(s => slot < s.Fin && fin > s.Inicio);
+    }
+
+    // ── Selecciones ────────────────────────────
+    private void SeleccionarMascota(Mascota m)
+    {
+        mascotaSeleccionada = m;
+        sinMascota = false; // deselecciona "sin mascota" si elige una
+    }
+
+    private void ToggleSinMascota()
+    {
+        sinMascota = !sinMascota;
+        if (sinMascota) mascotaSeleccionada = null; // deselecciona mascota si elige "sin mascota"
+    }
+
+    private void SeleccionarServicio(Servicio s)
+    {
+        servicioSeleccionado = s;
+        horaSeleccionada = default; // recalcular solapamientos con nueva duración
+    }
+
+    private void SeleccionarVeterinario(Veterinario v)
+    {
+        vetSeleccionado   = v;
+        horaSeleccionada  = default;
+        fechaSeleccionada = default;
+        slotsOcupados.Clear();
+    }
+
+    // ── Navegación ─────────────────────────────
+    private void PasoSiguiente() { if (PuedeContinuar && paso < 4) paso++; }
+    private void PasoAnterior()  { if (paso > 1) paso--; }
+
+    // ── Confirmar ──────────────────────────────
+    private async Task Confirmar()
+    {
+        errorEnvio = "";
+        enviando   = true;
+
+        var request = new CrearCitaRequest
+        {
+            IdMascota       = sinMascota ? null : mascotaSeleccionada?.Id,
+            IdVeterinario   = vetSeleccionado!.Id,
+            IdServicio      = servicioSeleccionado!.Id,
+            Fecha           = FechaHoraFinal,
+            Motivo          = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim(),
+            DuracionMinutos = servicioSeleccionado.DuracionEstimadaMin
+        };
+
+        var (cita, error) = await CitaService.CrearCitaAsync(request);
+        enviando = false;
+
+        if (error == null)
+            citaCreada = true;
+        else
+            errorEnvio = error;
+    }
+
+    // ── Helpers UI ─────────────────────────────
+    private string CatLabel(string cat) => cat switch
+    {
+        "clinica"    => "Clínica",
+        "estetica"   => "Estética",
+        "cirugia"    => "Cirugía",
+        "vacunacion" => "Vacunación",
+        "laboratorio"=> "Laboratorio",
+        _            => "Otro"
+    };
+
+    private string CatIcon(string cat) => cat switch
+    {
+        "clinica"    => "fa-stethoscope",
+        "estetica"   => "fa-scissors",
+        "cirugia"    => "fa-scalpel",
+        "vacunacion" => "fa-syringe",
+        "laboratorio"=> "fa-flask",
+        _            => "fa-notes-medical"
+    };
+}

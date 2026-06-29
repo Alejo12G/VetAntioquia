@@ -1,0 +1,270 @@
+:root {
+    --color-primary:           #00bf63;
+    --color-secondary:         #7ed957;
+    --transition:              0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    --sidebar-width:           240px;
+    --sidebar-collapsed-width: 64px;
+}
+
+/* ════════════════════════════════
+   Wrapper
+   — Animamos max-width en lugar de width.
+     max-width sí crea composite layer en GPU
+     y no conflictúa con overflow: hidden.
+   — overflow: hidden va SOLO en el inner,
+     no aquí, para no bloquear la transición.
+   ════════════════════════════════ */
+.sidebar-wrapper {
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    flex-shrink: 0;
+    /* max-width es lo que realmente anima */
+    width: var(--sidebar-width);
+    max-width: var(--sidebar-width);
+    transition: max-width var(--transition);
+    background: linear-gradient(160deg, #00bf63 0%, #007a3d 55%, #005a2d 100%);
+    /* SIN overflow: hidden aquí — lo pondría en el inner */
+}
+
+/* Estado colapsado: clase aplicada desde el Razor con @(IsCollapsed ? "collapsed" : "") */
+.sidebar-wrapper.collapsed {
+    max-width: var(--sidebar-collapsed-width);
+}
+
+/* Inner: overflow aquí para cortar el contenido que sobresale */
+.sidebar-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: var(--sidebar-width); /* ancho fijo para que el contenido no se comprima */
+    overflow: hidden;
+}
+
+/* ── Cabecera ── */
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0.75rem;
+    height: 3.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+}
+
+/* Brand: desvanece rápido al colapsar, aparece con delay al expandir */
+.brand-text {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    letter-spacing: 0.02em;
+    opacity: 1;
+    max-width: 160px;
+    transition: opacity 0.2s ease 0.18s, max-width var(--transition);
+}
+
+.sidebar-wrapper.collapsed .brand-text {
+    opacity: 0;
+    max-width: 0;
+    transition: opacity 0.08s ease, max-width var(--transition);
+}
+
+/* ── Botón colapsar — rota 180° al colapsar ── */
+.collapse-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #fff;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: auto;
+    transition: background var(--transition), transform var(--transition);
+}
+
+.collapse-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.sidebar-wrapper.collapsed .collapse-btn {
+    transform: rotate(180deg);
+}
+
+.collapse-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+    font-weight: bold;
+    color: #fff;
+    display: block;
+}
+
+/* ── Nav links ── */
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 0.5rem;
+    gap: 0.25rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.sidebar-nav ::deep .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+    transition: background var(--transition), color var(--transition);
+}
+
+.sidebar-nav ::deep .nav-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+}
+
+.sidebar-nav ::deep .nav-link.active {
+    background: rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.sidebar-nav ::deep .nav-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--color-secondary);
+}
+
+/* ── Íconos FontAwesome ── */
+.nav-icon-fa {
+    font-size: 1rem;
+    width: 1.25rem;
+    text-align: center;
+    flex-shrink: 0;
+    color: inherit;
+}
+
+/* ── Labels: fade coordinado ── */
+.nav-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 1;
+    max-width: 160px;
+    transition: opacity 0.2s ease 0.18s, max-width var(--transition);
+}
+
+.sidebar-wrapper.collapsed .nav-label {
+    opacity: 0;
+    max-width: 0;
+    pointer-events: none;
+    transition: opacity 0.08s ease, max-width var(--transition);
+}
+
+/* ── Tooltip en modo colapsado ── */
+.sidebar-wrapper.collapsed .sidebar-nav ::deep .nav-link {
+    overflow: visible;
+}
+
+.sidebar-wrapper.collapsed .sidebar-nav ::deep .nav-link:hover::after {
+    content: attr(title);
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 200;
+}
+
+/* ════════════════════════════════
+   Bottom Navigation (móvil)
+   ════════════════════════════════ */
+.bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4.5rem;
+    background: linear-gradient(135deg, #00bf63 0%, #007a3d 100%);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.22);
+    z-index: 100;
+    padding: 0.4rem 0.5rem;
+    gap: 0.25rem;
+}
+
+.bottom-nav ::deep a,
+.bottom-nav ::deep .bottom-nav-link {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    color: rgba(255, 255, 255, 0.75);
+    text-decoration: none;
+    font-size: 0.72rem;
+    font-weight: 500;
+    border-radius: 10px;
+    padding: 0.3rem 0.25rem;
+    transition: background var(--transition), color var(--transition);
+    min-width: 0;
+}
+
+.bottom-nav ::deep a:hover,
+.bottom-nav ::deep .bottom-nav-link:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.bottom-nav ::deep a.active,
+.bottom-nav ::deep .bottom-nav-link.active {
+    color: #ffffff;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.bottom-nav ::deep .nav-icon-fa {
+    font-size: 1.2rem;
+    color: inherit;
+}
+
+.bottom-nav ::deep .bottom-nav-label {
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+@media (max-width: 640.98px) {
+    .sidebar-wrapper { display: none; }
+    .bottom-nav { display: flex; }
+}
+
+@media (min-width: 641px) {
+    .bottom-nav { display: none !important; }
+}

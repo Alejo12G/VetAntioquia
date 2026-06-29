@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Backend/ApiVeterinaria
+      dockerfile: Dockerfile
+    container_name: api-veterinaria
+    ports:
+      - "3000:3000"
+    # Carga las variables de entorno para el backend
+    env_file:
+      - ./Backend/ApiVeterinaria/.env
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./Frontend/VeterinariaAntioquia
+      dockerfile: Dockerfile
+    container_name: web-veterinaria
+    ports:
+      - "8080:8080" # El frontend quedará expuesto en el puerto 8080
+    depends_on:
+      - backend
+    restart: unless-stopped

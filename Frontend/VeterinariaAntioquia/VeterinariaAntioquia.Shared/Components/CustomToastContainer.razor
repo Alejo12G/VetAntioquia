@@ -1,0 +1,76 @@
+﻿@namespace VeterinariaAntioquia.Shared.Components
+@using VeterinariaAntioquia.Shared.Models.Styles
+@using VeterinariaAntioquia.Shared.Services.Styles
+@inject VeterinariaAntioquia.Shared.Services.Styles.CustomToastService ToastService
+@implements IDisposable
+
+@*
+    Contenedor de notificaciones tipo Toast.
+    Implementa posicionamiento fijo para garantizar la visibilidad global independientemente
+    de la navegación. La estructura de lista permite gestionar múltiples notificaciones
+    concurrentes, evitando la pérdida de información en interacciones rápidas.
+*@
+<div class="toast-container">
+    @foreach (var toast in _activeToasts)
+    {
+        <div class="vet-toast @toast.Type.ToString().ToLower()">
+            <div class="toast-icon">
+                @switch (toast.Type)
+                {
+                    case ToastType.Success: <text>🐾</text> break;
+                    case ToastType.Info: <text>ℹ️</text> break;
+                    case ToastType.Warning: <text>⚠️</text> break;
+                    case ToastType.Error: <text>🚨</text> break;
+                }
+            </div>
+            <div class="toast-message">@toast.Message</div>
+            <button class="toast-close" @onclick="() => RemoverToast(toast)">×</button>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<ToastModel> _activeToasts = new();
+
+    protected override void OnInitialized()
+    {
+        // Suscripción al evento de notificación del servicio para reaccionar a 
+        // eventos de UI disparados desde cualquier parte de la aplicación.
+        ToastService.OnShow += ManejarNuevoToast;
+    }
+
+    private void ManejarNuevoToast(string mensaje, ToastType tipo)
+    {
+        var nuevoToast = new ToastModel { Message = mensaje, Type = tipo };
+        
+        // InvokeAsync es necesario para garantizar que las actualizaciones de estado
+        // se ejecuten dentro del hilo principal de renderizado, evitando excepciones 
+        // de concurrencia al actualizar el DOM desde hilos asíncronos.
+        InvokeAsync(async () =>
+        {
+            _activeToasts.Add(nuevoToast);
+            StateHasChanged(); // Forzamos el renderizado del componente
+
+            // Ciclo de vida efímero: las notificaciones tienen un periodo de 
+            // visibilidad predefinido para no saturar la interfaz de usuario.
+            await Task.Delay(4000);
+            RemoverToast(nuevoToast);
+        });
+    }
+
+    private void RemoverToast(ToastModel toast)
+    {
+        if (_activeToasts.Contains(toast))
+        {
+            _activeToasts.Remove(toast);
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        // Limpieza de recursos: es fundamental desuscribirse para prevenir
+        // fugas de memoria cuando el contenedor es destruido.
+        ToastService.OnShow -= ManejarNuevoToast;
+    }
+}

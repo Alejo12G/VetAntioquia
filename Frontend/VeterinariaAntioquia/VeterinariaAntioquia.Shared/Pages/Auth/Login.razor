@@ -1,0 +1,240 @@
+@page "/auth/login"
+@using VeterinariaAntioquia.Shared.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="auth-wrap">
+    <div class="auth-card">
+
+        @* ── Cabecera con tabs ── *@
+        <div class="auth-header">
+            <div class="auth-brand">
+                <i class="fa-solid fa-paw"></i>
+                VetAntioquia
+            </div>
+            <div class="auth-tabs">
+                <button class="auth-tab @(activeTab == "login" ? "active" : "")"
+                        @onclick='() => SwitchTab("login")'>
+                    Iniciar sesión
+                </button>
+                <button class="auth-tab @(activeTab == "register" ? "active" : "")"
+                        @onclick='() => SwitchTab("register")'>
+                    Registrarse
+                </button>
+            </div>
+        </div>
+
+        @* ── Panel Login ── *@
+        @if (activeTab == "login")
+        {
+            <div class="auth-body">
+                <p class="auth-sub">Bienvenido de vuelta.</p>
+
+                <div class="field-group">
+                    <label class="field-label">Correo electrónico</label>
+                    <div class="field-input-wrap">
+                        <i class="fa-regular fa-envelope field-icon"></i>
+                        <input type="email" class="field-input" placeholder="correo@ejemplo.com"
+                               @bind-value="loginEmail" @bind-value:event="oninput" />
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Contraseña</label>
+                    <div class="field-input-wrap">
+                        <i class="fa-solid fa-lock field-icon"></i>
+                        <input type="@(showLoginPassword ? "text" : "password")"
+                               class="field-input" placeholder="••••••••"
+                               @bind-value="loginPassword" @bind-value:event="oninput" />
+                        <button class="field-eye" type="button"
+                                @onclick="() => showLoginPassword = !showLoginPassword">
+                            <i class="fa-regular @(showLoginPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                        </button>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(loginError))
+                {
+                    <div class="auth-error">
+                        <i class="fa-solid fa-circle-exclamation"></i> @loginError
+                    </div>
+                }
+
+                <button class="auth-submit" @onclick="HandleLogin" disabled="@loginLoading">
+                    @if (loginLoading)
+                    {
+                        <span class="spinner"></span>
+                    }
+                    else
+                    {
+                        <span>Entrar</span>
+                    }
+                </button>
+            </div>
+        }
+
+        @* ── Panel Registro ── *@
+        @if (activeTab == "register")
+        {
+            <div class="auth-body">
+                <p class="auth-sub">Crea tu cuenta, es gratis.</p>
+
+                <div class="field-group">
+                    <label class="field-label">Nombre completo</label>
+                    <div class="field-input-wrap">
+                        <i class="fa-regular fa-user field-icon"></i>
+                        <input type="text" class="field-input" placeholder="Tu nombre"
+                               @bind-value="regNombre" @bind-value:event="oninput" />
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Correo electrónico</label>
+                    <div class="field-input-wrap">
+                        <i class="fa-regular fa-envelope field-icon"></i>
+                        <input type="email" class="field-input" placeholder="correo@ejemplo.com"
+                               @bind-value="regEmail" @bind-value:event="oninput" />
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Contraseña</label>
+                    <div class="field-input-wrap">
+                        <i class="fa-solid fa-lock field-icon"></i>
+                        <input type="@(showRegPassword ? "text" : "password")"
+                               class="field-input" placeholder="Mínimo 8 caracteres"
+                               @bind-value="regPassword" @bind-value:event="oninput" />
+                        <button class="field-eye" type="button"
+                                @onclick="() => showRegPassword = !showRegPassword">
+                            <i class="fa-regular @(showRegPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Confirmar contraseña</label>
+                    <div class="field-input-wrap">
+                        <i class="fa-solid fa-lock field-icon"></i>
+                        <input type="@(showRegPassword ? "text" : "password")"
+                               class="field-input" placeholder="Repite tu contraseña"
+                               @bind-value="regConfirm" @bind-value:event="oninput" />
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(regError))
+                {
+                    <div class="auth-error">
+                        <i class="fa-solid fa-circle-exclamation"></i> @regError
+                    </div>
+                }
+
+                @if (regSuccess)
+                {
+                    <div class="auth-success">
+                        <i class="fa-solid fa-circle-check"></i> Cuenta creada. Ya puedes iniciar sesión.
+                    </div>
+                }
+
+                <button class="auth-submit" @onclick="HandleRegister" disabled="@regLoading">
+                    @if (regLoading)
+                    {
+                        <span class="spinner"></span>
+                    }
+                    else
+                    {
+                        <span>Crear cuenta</span>
+                    }
+                </button>
+            </div>
+        }
+
+    </div>
+</div>
+
+@code {
+    // ── Estado de tabs ──
+    private string activeTab = "login";
+    private void SwitchTab(string tab)
+    {
+        activeTab = tab;
+        loginError = string.Empty;
+        regError = string.Empty;
+        regSuccess = false;
+    }
+
+    // ── Login ──
+    private string loginEmail = "";
+    private string loginPassword = "";
+    private string loginError = "";
+    private bool loginLoading = false;
+    private bool showLoginPassword = false;
+
+    private async Task HandleLogin()
+    {
+        loginError = string.Empty;
+        if (string.IsNullOrWhiteSpace(loginEmail) || string.IsNullOrWhiteSpace(loginPassword))
+        {
+            loginError = "Completa todos los campos.";
+            return;
+        }
+
+        loginLoading = true;
+        var error = await AuthService.Login(loginEmail, loginPassword);
+        loginLoading = false;
+
+        if (error == null)
+            Navigation.NavigateTo("/");
+        else
+            loginError = error;
+    }
+
+    // ── Registro ──
+    private string regNombre = "";
+    private string regEmail = "";
+    private string regPassword = "";
+    private string regConfirm = "";
+    private string regError = "";
+    private bool regLoading = false;
+    private bool regSuccess = false;
+    private bool showRegPassword = false;
+
+    private async Task HandleRegister()
+    {
+        regError = string.Empty;
+        regSuccess = false;
+
+        // Validaciones client-side
+        if (string.IsNullOrWhiteSpace(regNombre))
+        { regError = "El nombre es obligatorio."; return; }
+
+        if (string.IsNullOrWhiteSpace(regEmail) || !regEmail.Contains("@"))
+        { regError = "Ingresa un correo válido."; return; }
+
+        if (regPassword.Length < 8)
+        { regError = "La contraseña debe tener al menos 8 caracteres."; return; }
+
+        if (regPassword != regConfirm)
+        { regError = "Las contraseñas no coinciden."; return; }
+
+        regLoading = true;
+
+        // Llama a AuthService.Register — ajusta la firma según tu implementación
+        // El rol "cliente" y fecha_registro se asignan en el backend/servicio
+        var error = await AuthService.Register(regNombre, regEmail, regPassword);
+        regLoading = false;
+
+        if (error == null)
+        {
+            regSuccess = true;
+            regNombre = regEmail = regPassword = regConfirm = "";
+            // Opcional: cambia al tab de login automáticamente tras 1.5s
+            await Task.Delay(1500);
+            SwitchTab("login");
+            StateHasChanged();
+        }
+        else
+        {
+            regError = error;
+        }
+    }
+}

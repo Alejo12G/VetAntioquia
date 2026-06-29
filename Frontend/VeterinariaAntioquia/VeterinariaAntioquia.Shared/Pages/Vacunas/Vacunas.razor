@@ -1,0 +1,144 @@
+@page "/gestion/vacunas"
+@using VeterinariaAntioquia.Shared.Models
+@using VeterinariaAntioquia.Shared.Services
+@inject VacunaService VacunaService
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "administrador,veterinario")]
+
+<PageTitle>Vacunación — VetAntioquia</PageTitle>
+
+<div class="vac-wrap">
+    <div class="vac-header">
+        <h1 class="vac-title">
+            <i class="fa-solid fa-syringe"></i> Vacunación
+        </h1>
+        <p class="vac-sub">Registro y catálogo de vacunas</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorGlobal))
+    {
+        <div class="vac-error"><i class="fa-solid fa-circle-exclamation"></i> @errorGlobal</div>
+    }
+    @if (!string.IsNullOrEmpty(successGlobal))
+    {
+        <div class="vac-success"><i class="fa-solid fa-check-circle"></i> @successGlobal</div>
+    }
+
+    <div class="vac-content">
+        @* ── Columna 1: Catálogo ── *@
+        <div class="vac-card">
+            <h3><i class="fa-solid fa-book-medical"></i> Catálogo Disponible</h3>
+            @if (cargandoCatalogo)
+            {
+                <div class="vac-loading">Cargando...</div>
+            }
+            else if (!catalogo.Any())
+            {
+                <div class="vac-empty">No hay vacunas registradas en el catálogo.</div>
+            }
+            else
+            {
+                <div class="vac-list">
+                    @foreach (var v in catalogo)
+                    {
+                        <div class="vac-item" @onclick="() => SeleccionarVacuna(v)">
+                            <div class="vac-item-info">
+                                <strong>@v.Nombre</strong>
+                                <span>@v.Fabricante — Inmunidad: @v.DiasInmunidad días</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right vac-item-icon"></i>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @* ── Columna 2: Aplicar Vacuna ── *@
+        <div class="vac-card">
+            <h3><i class="fa-solid fa-hand-holding-medical"></i> Registrar Aplicación</h3>
+            
+            <div class="vac-form">
+                <div class="vac-form-group">
+                    <label>ID Mascota</label>
+                    <input type="number" class="vac-input" @bind="req.IdMascota" placeholder="Ej: 5" />
+                </div>
+                
+                <div class="vac-form-group">
+                    <label>Vacuna Seleccionada</label>
+                    <input type="text" class="vac-input vac-readonly" value="@(vacunaSeleccionada?.Nombre ?? "Seleccione del catálogo...")" readonly />
+                </div>
+
+                <div class="vac-form-group">
+                    <label>Lote (Opcional)</label>
+                    <input type="text" class="vac-input" @bind="req.Lote" placeholder="Lote del vial" />
+                </div>
+
+                <div class="vac-form-group">
+                    <label>Fecha de Aplicación</label>
+                    <input type="date" class="vac-input" @bind="fechaAplicacionDate" />
+                </div>
+
+                <button class="vac-btn" disabled="@(!PuedeAplicar || guardando)" @onclick="AplicarVacuna">
+                    @(guardando ? "Guardando..." : "Registrar Vacuna")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Vacuna> catalogo = new();
+    private bool cargandoCatalogo = true;
+    private string? errorGlobal;
+    private string? successGlobal;
+    private bool guardando = false;
+
+    private Vacuna? vacunaSeleccionada;
+    private DateTime fechaAplicacionDate = DateTime.Now;
+    private AplicarVacunaRequest req = new();
+
+    private bool PuedeAplicar => req.IdMascota > 0 && vacunaSeleccionada != null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarCatalogo();
+    }
+
+    private async Task CargarCatalogo()
+    {
+        cargandoCatalogo = true;
+        var (data, err) = await VacunaService.GetCatalogoAsync();
+        if (err != null) errorGlobal = err;
+        else catalogo = data;
+        cargandoCatalogo = false;
+    }
+
+    private void SeleccionarVacuna(Vacuna v)
+    {
+        vacunaSeleccionada = v;
+        req.IdVacuna = v.Id;
+    }
+
+    private async Task AplicarVacuna()
+    {
+        errorGlobal = null;
+        successGlobal = null;
+        guardando = true;
+        
+        req.FechaAplicacion = fechaAplicacionDate.ToString("yyyy-MM-dd");
+
+        var (ok, err) = await VacunaService.AplicarVacunaAsync(req);
+        
+        guardando = false;
+        
+        if (!ok)
+        {
+            errorGlobal = err;
+            return;
+        }
+
+        successGlobal = $"Vacuna aplicada correctamente a la mascota #{req.IdMascota}. (TC-006 Pass)";
+        req.IdMascota = 0;
+        req.Lote = "";
+        vacunaSeleccionada = null;
+    }
+}

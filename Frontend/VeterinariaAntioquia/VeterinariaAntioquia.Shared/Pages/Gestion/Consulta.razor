@@ -1,0 +1,858 @@
+@* ═══════════════════════════════════════════════════════════════
+   Consulta.razor — Formulario de consulta veterinaria
+   Ruta: /gestion/consulta/{Id}
+
+   Permite al veterinario:
+     · Ver información completa de la cita (cliente, servicio, fecha)
+     · Si la cita no tiene mascota: asignar una existente del cliente
+       o registrar una nueva mascota
+     · Llenar formulario de consulta (diagnóstico, tratamiento,
+       observaciones, peso)
+     · Finalizar la consulta (cambiar estado a "completada")
+
+   Acceso: solo veterinario asignado o administrador.
+═══════════════════════════════════════════════════════════════ *@
+
+@page "/gestion/consulta/{Id:int}"
+@using VeterinariaAntioquia.Shared.Models
+@using VeterinariaAntioquia.Shared.Services
+@using System.Security.Claims
+@using System.Globalization
+@inject CitaService CitaService
+@inject DiagnosticoService DiagnosticoService
+@inject TratamientoService TratamientoService
+@inject InventarioService InventarioService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Consulta — VetAntioquia</PageTitle>
+
+<div class="cs-wrap">
+
+    @* ── Encabezado ── *@
+    <div class="cs-header">
+        <button class="cs-back" @onclick='() => Navigation.NavigateTo("/gestion")'>
+            <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <div>
+            <h1 class="cs-title">
+                <i class="fa-solid fa-notes-medical"></i>
+                Consulta veterinaria
+            </h1>
+            <p class="cs-sub">Cita #@Id</p>
+        </div>
+    </div>
+
+    @* ── Error global ── *@
+    @if (!string.IsNullOrEmpty(errorGlobal))
+    {
+        <div class="cs-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            @errorGlobal
+            @if (errorGlobal.Contains("Sesión"))
+            {
+                <a href="/auth/login">Iniciar sesión</a>
+            }
+        </div>
+    }
+
+    @* ── Cargando ── *@
+    @if (cargando)
+    {
+        <div class="cs-loading">
+            <span class="cs-spinner"></span>
+            Cargando detalle de la cita…
+        </div>
+    }
+    else if (cita != null)
+    {
+        @* ══════════════════════════════════════
+           SECCIÓN 1 — Información de la cita
+        ══════════════════════════════════════ *@
+        <div class="cs-section">
+            <h2 class="cs-section-title">
+                <i class="fa-solid fa-clipboard-list"></i>
+                Información de la cita
+            </h2>
+
+            <div class="cs-info-grid">
+                @* Cliente *@
+                <div class="cs-info-card">
+                    <div class="cs-info-ico"><i class="fa-solid fa-user"></i></div>
+                    <div class="cs-info-body">
+                        <span class="cs-info-label">Cliente</span>
+                        <span class="cs-info-val">@cita.ClienteNombre</span>
+                        @if (!string.IsNullOrEmpty(cita.ClienteEmail))
+                        {
+                            <span class="cs-info-sub">
+                                <i class="fa-solid fa-envelope"></i> @cita.ClienteEmail
+                            </span>
+                        }
+                        @if (!string.IsNullOrEmpty(cita.ClienteTelefono))
+                        {
+                            <span class="cs-info-sub">
+                                <i class="fa-solid fa-phone"></i> @cita.ClienteTelefono
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                @* Servicio *@
+                <div class="cs-info-card">
+                    <div class="cs-info-ico servicio"><i class="fa-solid fa-stethoscope"></i></div>
+                    <div class="cs-info-body">
+                        <span class="cs-info-label">Servicio</span>
+                        <span class="cs-info-val">@cita.ServicioNombre</span>
+                        <span class="cs-info-sub">
+                            <i class="fa-solid fa-tag"></i> $@cita.ServicioPrecioBase.ToString("N0")
+                            · <i class="fa-regular fa-clock"></i> @cita.ServicioDuracionEstimada min
+                        </span>
+                    </div>
+                </div>
+
+                @* Fecha *@
+                <div class="cs-info-card">
+                    <div class="cs-info-ico fecha"><i class="fa-regular fa-calendar"></i></div>
+                    <div class="cs-info-body">
+                        <span class="cs-info-label">Fecha y hora</span>
+                        <span class="cs-info-val">
+                            @cita.Fecha.ToString("dddd d 'de' MMMM", CultureInfo.GetCultureInfo("es-CO"))
+                        </span>
+                        <span class="cs-info-sub">
+                            <i class="fa-regular fa-clock"></i>
+                            @cita.Fecha.ToString("HH:mm") hrs
+                        </span>
+                    </div>
+                </div>
+
+                @* Estado *@
+                <div class="cs-info-card">
+                    <div class="cs-info-ico estado"><i class="fa-solid fa-circle-info"></i></div>
+                    <div class="cs-info-body">
+                        <span class="cs-info-label">Estado</span>
+                        <span class="cs-badge @EstadoClase(cita.Estado)">
+                            <i class="fa-solid @EstadoIcono(cita.Estado)"></i>
+                            @EstadoLabel(cita.Estado)
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            @* Motivo original *@
+            @if (!string.IsNullOrEmpty(cita.Motivo))
+            {
+                <div class="cs-motivo-card">
+                    <i class="fa-regular fa-note-sticky"></i>
+                    <div>
+                        <span class="cs-motivo-label">Motivo de la consulta</span>
+                        <p class="cs-motivo-text">@cita.Motivo</p>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* ══════════════════════════════════════
+           SECCIÓN 2 — Mascota
+        ══════════════════════════════════════ *@
+        <div class="cs-section">
+            <h2 class="cs-section-title">
+                <i class="fa-solid fa-paw"></i>
+                Mascota
+            </h2>
+
+            @if (tieneMascota)
+            {
+                @* ── Mascota ya asignada ── *@
+                <div class="cs-mascota-card">
+                    <div class="cs-mascota-avatar">
+                        @if (!string.IsNullOrEmpty(cita.MascotaFotoUrl))
+                        {
+                            <img src="@cita.MascotaFotoUrl" alt="@cita.MascotaNombre" />
+                        }
+                        else
+                        {
+                            <i class="fa-solid fa-dog"></i>
+                        }
+                    </div>
+                    <div class="cs-mascota-info">
+                        <span class="cs-mascota-nombre">@cita.MascotaNombre</span>
+                        <div class="cs-mascota-details">
+                            @if (!string.IsNullOrEmpty(cita.EspecieNombre))
+                            {
+                                <span><i class="fa-solid fa-dna"></i> @cita.EspecieNombre</span>
+                            }
+                            @if (!string.IsNullOrEmpty(cita.MascotaSexo))
+                            {
+                                <span>
+                                    <i class="fa-solid @(cita.MascotaSexo == "macho" ? "fa-mars" : "fa-venus")"></i>
+                                    @cita.MascotaSexo
+                                </span>
+                            }
+                            @if (cita.MascotaEdadAnios.HasValue)
+                            {
+                                <span><i class="fa-solid fa-cake-candles"></i> @cita.MascotaEdadAnios años</span>
+                            }
+                            <span>
+                                <i class="fa-solid @(cita.MascotaEsterilizado == true ? "fa-check-circle" : "fa-times-circle")"></i>
+                                @(cita.MascotaEsterilizado == true ? "Esterilizado" : "No esterilizado")
+                            </span>
+                        </div>
+                    </div>
+                    <div class="cs-mascota-check">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @* ── Sin mascota — Asignar ── *@
+                <div class="cs-sin-mascota">
+                    <div class="cs-sin-mascota-header">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Esta cita no tiene mascota asignada. Selecciona una del cliente o registra una nueva.</span>
+                    </div>
+
+                    @* Mascotas del cliente *@
+                    @if (cargandoMascotasCliente)
+                    {
+                        <div class="cs-loading sm">
+                            <span class="cs-spinner"></span> Buscando mascotas del cliente…
+                        </div>
+                    }
+                    else if (mascotasCliente.Any() && !mostrarFormNuevaMascota)
+                    {
+                        <div class="cs-mascota-list">
+                            @foreach (var m in mascotasCliente)
+                            {
+                                <button class="cs-mascota-option @(mascotaSeleccionada?.Id == m.Id ? "selected" : "")"
+                                        @onclick="() => mascotaSeleccionada = m">
+                                    <div class="cs-mascota-opt-avatar">
+                                        @if (!string.IsNullOrEmpty(m.FotoUrl))
+                                        {
+                                            <img src="@m.FotoUrl" alt="@m.Nombre" />
+                                        }
+                                        else
+                                        {
+                                            <i class="fa-solid fa-dog"></i>
+                                        }
+                                    </div>
+                                    <div class="cs-mascota-opt-info">
+                                        <span class="cs-mascota-opt-nombre">@m.Nombre</span>
+                                        <span class="cs-mascota-opt-sub">
+                                            @(m.EspecieNombre ?? "Sin especie")
+                                            @if (m.EdadAnios.HasValue)
+                                            {
+                                                <text> · @m.EdadAnios años</text>
+                                            }
+                                        </span>
+                                    </div>
+                                    @if (mascotaSeleccionada?.Id == m.Id)
+                                    {
+                                        <i class="cs-opt-check fa-solid fa-circle-check"></i>
+                                    }
+                                </button>
+                            }
+                        </div>
+
+                        @* Botón asignar *@
+                        @if (mascotaSeleccionada != null)
+                        {
+                            <button class="cs-btn-primary" @onclick="AsignarMascota" disabled="@asignando">
+                                @if (asignando)
+                                {
+                                    <span class="cs-spinner sm"></span>
+                                }
+                                else
+                                {
+                                    <i class="fa-solid fa-link"></i>
+                                    <text>Asignar "@mascotaSeleccionada.Nombre" a esta cita</text>
+                                }
+                            </button>
+                        }
+
+                        <button class="cs-btn-ghost" @onclick="() => mostrarFormNuevaMascota = true">
+                            <i class="fa-solid fa-plus"></i>
+                            La mascota no está en la lista — Registrar nueva
+                        </button>
+                    }
+                    else
+                    {
+                        @* ── Formulario nueva mascota ── *@
+                        @if (!mascotasCliente.Any() && !mostrarFormNuevaMascota)
+                        {
+                            <div class="cs-empty-mascotas">
+                                <i class="fa-regular fa-face-sad-tear"></i>
+                                <span>El cliente no tiene mascotas registradas.</span>
+                            </div>
+                        }
+
+                        <div class="cs-form-nueva-mascota">
+                            <h3 class="cs-form-titulo">
+                                <i class="fa-solid fa-plus-circle"></i>
+                                Registrar nueva mascota
+                            </h3>
+
+                            <div class="cs-form-grid">
+                                <div class="cs-field">
+                                    <label class="cs-field-label">Nombre *</label>
+                                    <input type="text" class="cs-input" placeholder="Ej: Luna"
+                                           @bind="nuevaMascota.Nombre" maxlength="50" />
+                                </div>
+
+                                <div class="cs-field">
+                                    <label class="cs-field-label">Especie *</label>
+                                    @if (cargandoEspecies)
+                                    {
+                                        <div class="cs-loading sm">
+                                            <span class="cs-spinner"></span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <select class="cs-input" @bind="nuevaMascota.IdEspecie">
+                                            <option value="0" disabled>Seleccionar especie</option>
+                                            @foreach (var e in especies)
+                                            {
+                                                <option value="@e.Id">@e.Nombre</option>
+                                            }
+                                        </select>
+                                    }
+                                </div>
+
+                                <div class="cs-field">
+                                    <label class="cs-field-label">Sexo *</label>
+                                    <div class="cs-radio-group">
+                                        <label class="cs-radio @(nuevaMascota.Sexo == "macho" ? "selected" : "")">
+                                            <input type="radio" name="sexo" value="macho"
+                                                   @onchange='() => nuevaMascota.Sexo = "macho"'
+                                                   checked="@(nuevaMascota.Sexo == "macho")" />
+                                            <i class="fa-solid fa-mars"></i> Macho
+                                        </label>
+                                        <label class="cs-radio @(nuevaMascota.Sexo == "hembra" ? "selected" : "")">
+                                            <input type="radio" name="sexo" value="hembra"
+                                                   @onchange='() => nuevaMascota.Sexo = "hembra"'
+                                                   checked="@(nuevaMascota.Sexo == "hembra")" />
+                                            <i class="fa-solid fa-venus"></i> Hembra
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="cs-field">
+                                    <label class="cs-field-label">Fecha de nacimiento</label>
+                                    <input type="date" class="cs-input"
+                                           max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                           @bind="fechaNacimientoMascota" />
+                                </div>
+
+                                <div class="cs-field">
+                                    <label class="cs-checkbox-label">
+                                        <input type="checkbox" @bind="nuevaMascota.Esterilizado" />
+                                        <span class="cs-checkbox-custom"></span>
+                                        Esterilizado/a
+                                    </label>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(errorMascota))
+                            {
+                                <div class="cs-error sm">
+                                    <i class="fa-solid fa-circle-exclamation"></i> @errorMascota
+                                </div>
+                            }
+
+                            <div class="cs-form-actions">
+                                <button class="cs-btn-primary" @onclick="CrearYAsignarMascota"
+                                        disabled="@(creandoMascota || !PuedeCrearMascota)">
+                                    @if (creandoMascota)
+                                    {
+                                        <span class="cs-spinner sm"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="fa-solid fa-check"></i>
+                                        <text>Registrar y asignar</text>
+                                    }
+                                </button>
+                                @if (mascotasCliente.Any())
+                                {
+                                    <button class="cs-btn-ghost" @onclick="() => mostrarFormNuevaMascota = false">
+                                        <i class="fa-solid fa-arrow-left"></i> Volver a la lista
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(errorAsignacion))
+                    {
+                        <div class="cs-error sm">
+                            <i class="fa-solid fa-circle-exclamation"></i> @errorAsignacion
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @* ══════════════════════════════════════
+           SECCIÓN 3 — Formulario de consulta
+        ══════════════════════════════════════ *@
+        @if (tieneMascota && !consultaFinalizada)
+        {
+            <div class="cs-section">
+                <h2 class="cs-section-title">
+                    <i class="fa-solid fa-file-medical"></i>
+                    Formulario de consulta
+                </h2>
+
+                <div class="cs-consulta-form">
+                    <div class="cs-field">
+                        <label class="cs-field-label">
+                            Peso actual (kg) <span class="cs-optional">(opcional)</span>
+                        </label>
+                        <input type="number" class="cs-input" placeholder="Ej: 5.2"
+                               step="0.1" min="0" max="200"
+                               @bind="pesoKg" />
+                    </div>
+
+                    <div class="cs-field">
+                        <label class="cs-field-label">Diagnóstico *</label>
+                        <textarea class="cs-textarea" rows="3"
+                                  placeholder="Describe el diagnóstico del paciente…"
+                                  maxlength="1000" @bind="diagnostico"></textarea>
+                        <span class="cs-char-count">@(diagnostico?.Length ?? 0)/1000</span>
+                    </div>
+
+                    <div class="cs-field">
+                        <label class="cs-field-label">Síntomas *</label>
+                        <textarea class="cs-textarea" rows="3"
+                                  placeholder="Indica los síntomas observados…"
+                                  maxlength="1000" @bind="sintomas"></textarea>
+                        <span class="cs-char-count">@(sintomas?.Length ?? 0)/1000</span>
+                    </div>
+
+                    <div class="cs-field">
+                        <label class="cs-field-label">
+                            Observaciones <span class="cs-optional">(opcional)</span>
+                        </label>
+                        <textarea class="cs-textarea" rows="2"
+                                  placeholder="Notas adicionales…"
+                                  maxlength="500" @bind="observaciones"></textarea>
+                        <span class="cs-char-count">@(observaciones?.Length ?? 0)/500</span>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorConsulta))
+                    {
+                        <div class="cs-error sm">
+                            <i class="fa-solid fa-circle-exclamation"></i> @errorConsulta
+                        </div>
+                    }
+
+                    <button class="cs-btn-finalizar" @onclick="FinalizarConsulta"
+                            disabled="@(finalizando || !PuedeFinalizar)">
+                        @if (finalizando)
+                        {
+                            <span class="cs-spinner sm"></span>
+                            <text>Finalizando…</text>
+                        }
+                        else
+                        {
+                            <i class="fa-solid fa-flag-checkered"></i>
+                            <text>Finalizar consulta</text>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
+
+        @* ── Consulta ya finalizada ── *@
+        @if (consultaFinalizada)
+        {
+            <div class="cs-success-card">
+                <div class="cs-success-ico">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <h3 class="cs-success-title">¡Diagnóstico Registrado!</h3>
+                <p class="cs-success-sub">
+                    La consulta ha finalizado correctamente. (TC-004 Pass)
+                </p>
+                <div style="margin-top: 1rem;">
+                    <button class="cs-btn-secondary" @onclick="AbrirModalTratamiento">
+                        <i class="fa-solid fa-pills"></i> Recetar Tratamiento (TC-005)
+                    </button>
+                    <button class="cs-btn-primary" @onclick='() => Navigation.NavigateTo("/gestion")' style="margin-left: 1rem;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver a gestión
+                    </button>
+                </div>
+                
+                @if (tratamientosRecetados.Any())
+                {
+                    <div style="margin-top: 2rem; text-align: left; width: 100%;">
+                        <h4>Tratamientos Recetados:</h4>
+                        <ul style="list-style: none; padding: 0;">
+                            @foreach (var t in tratamientosRecetados)
+                            {
+                                <li style="background: var(--bg-body); padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                                    <strong>@t.MedicamentoNombre</strong> - Dosis: @t.Dosis (@t.Frecuencia) x @t.DuracionDias días
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@* ── Modal Tratamiento ── *@
+@if (mostrarModalTratamiento)
+{
+    <div class="cs-modal-backdrop" @onclick="() => mostrarModalTratamiento = false"></div>
+    <div class="cs-modal" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); padding: 2rem; border-radius: 12px; z-index: 1001; min-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <h3><i class="fa-solid fa-pills"></i> Nuevo Tratamiento</h3>
+        
+        <div class="cs-field">
+            <label class="cs-field-label">Medicamento (Inventario)</label>
+            <select class="cs-input" @bind="reqTratamiento.IdMedicamento">
+                <option value="0" disabled>Seleccione un medicamento...</option>
+                @foreach (var m in medicamentosDisponibles)
+                {
+                    <option value="@m.Id">@m.Nombre - Stock: @m.Cantidad</option>
+                }
+            </select>
+        </div>
+        
+        <div class="cs-field">
+            <label class="cs-field-label">Dosis</label>
+            <input type="text" class="cs-input" @bind="reqTratamiento.Dosis" placeholder="Ej: 1 pastilla" />
+        </div>
+        
+        <div class="cs-field">
+            <label class="cs-field-label">Frecuencia</label>
+            <input type="text" class="cs-input" @bind="reqTratamiento.Frecuencia" placeholder="Ej: Cada 8 horas" />
+        </div>
+        
+        <div class="cs-field">
+            <label class="cs-field-label">Duración (días)</label>
+            <input type="number" class="cs-input" @bind="reqTratamiento.DuracionDias" min="1" />
+        </div>
+        
+        @if (!string.IsNullOrEmpty(errorTratamiento))
+        {
+            <div class="cs-error sm" style="margin-top: 1rem;"><i class="fa-solid fa-circle-exclamation"></i> @errorTratamiento</div>
+        }
+
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: flex-end;">
+            <button class="cs-btn-secondary" @onclick="() => mostrarModalTratamiento = false">Cancelar</button>
+            <button class="cs-btn-primary" @onclick="GuardarTratamiento" disabled="@guardandoTratamiento">
+                @(guardandoTratamiento ? "Guardando..." : "Guardar")
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    // ──────────────────────────────────────────────────────────
+    //  Parámetro de ruta
+    // ──────────────────────────────────────────────────────────
+    [Parameter] public int Id { get; set; }
+
+    // ──────────────────────────────────────────────────────────
+    //  Estado del componente
+    // ──────────────────────────────────────────────────────────
+    private CitaDetalle? cita;
+    private bool cargando = true;
+    private string errorGlobal = "";
+
+    // ── Mascota ────────────────────────────────────────
+    private List<MascotaCliente> mascotasCliente = new();
+    private List<Especie> especies = new();
+    private MascotaCliente? mascotaSeleccionada;
+    private bool cargandoMascotasCliente;
+    private bool cargandoEspecies;
+    private bool mostrarFormNuevaMascota;
+    private bool asignando;
+    private bool creandoMascota;
+    private string errorAsignacion = "";
+    private string errorMascota = "";
+
+    private CrearMascotaRequest nuevaMascota = new();
+    private DateTime? fechaNacimientoMascota;
+
+    // ── Consulta ──────────────────────────────────────
+    private string diagnostico = "";
+    private string sintomas = "";
+    private string? observaciones;
+    private decimal? pesoKg;
+    private bool finalizando;
+    private bool consultaFinalizada;
+    private string errorConsulta = "";
+    // ── Tratamientos ──────────────────────────────────
+    private bool mostrarModalTratamiento = false;
+    private bool guardandoTratamiento = false;
+    private string errorTratamiento = "";
+    private int diagnosticoIdGenerado = 0;
+    private TratamientoRequest reqTratamiento = new() { FechaInicio = DateTime.Now.ToString("yyyy-MM-dd"), DuracionDias = 1 };
+    private List<MedicamentoInventario> medicamentosDisponibles = new();
+    private List<Tratamiento> tratamientosRecetados = new();
+
+    // ── Propiedades calculadas ────────────────────────
+    private bool tieneMascota => cita?.MascotaNombre != null;
+
+    private bool PuedeCrearMascota =>
+        !string.IsNullOrWhiteSpace(nuevaMascota.Nombre) &&
+        !string.IsNullOrWhiteSpace(nuevaMascota.Sexo) &&
+        nuevaMascota.IdEspecie > 0;
+
+    private bool PuedeFinalizar =>
+        !string.IsNullOrWhiteSpace(diagnostico) &&
+        !string.IsNullOrWhiteSpace(sintomas);
+
+    // ──────────────────────────────────────────────────────────
+    //  Lifecycle
+    // ──────────────────────────────────────────────────────────
+    protected override Task OnInitializedAsync() => Task.CompletedTask;
+
+    private bool _cargaRealizada = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _cargaRealizada) return;
+        _cargaRealizada = true;
+
+        // Guard de autenticación + autorización
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (!user.Identity?.IsAuthenticated ?? true)
+        {
+            Navigation.NavigateTo("/auth/login", forceLoad: false);
+            return;
+        }
+
+        var rol = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? "";
+        if (rol != "veterinario" && rol != "administrador")
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        await CargarDetalleCita();
+        StateHasChanged();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Carga de datos
+    // ──────────────────────────────────────────────────────────
+    private async Task CargarDetalleCita()
+    {
+        cargando = true;
+        var (data, error) = await CitaService.GetCitaDetalleAsync(Id);
+
+        if (error != null)
+        {
+            errorGlobal = error;
+            cargando = false;
+            return;
+        }
+
+        cita = data;
+        cargando = false;
+
+        // Si no tiene mascota, cargar mascotas del cliente
+        if (!tieneMascota && cita != null)
+        {
+            await CargarMascotasCliente();
+            await CargarEspecies();
+        }
+    }
+
+    private async Task CargarMascotasCliente()
+    {
+        if (cita == null) return;
+        cargandoMascotasCliente = true;
+        var (data, error) = await CitaService.GetMascotasClienteAsync(cita.ClienteId);
+        if (error != null) errorGlobal = error;
+        mascotasCliente = data;
+        cargandoMascotasCliente = false;
+
+        // Si no tiene mascotas, mostrar el form directamente
+        if (!mascotasCliente.Any())
+            mostrarFormNuevaMascota = true;
+    }
+
+    private async Task CargarEspecies()
+    {
+        cargandoEspecies = true;
+        var (data, error) = await CitaService.GetEspeciesAsync();
+        if (error != null) errorGlobal = error;
+        especies = data;
+        cargandoEspecies = false;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Acciones
+    // ──────────────────────────────────────────────────────────
+    private async Task AsignarMascota()
+    {
+        if (mascotaSeleccionada == null || cita == null) return;
+        asignando = true;
+        errorAsignacion = "";
+
+        var error = await CitaService.AsignarMascotaAsync(Id, mascotaSeleccionada.Id);
+
+        if (error != null)
+        {
+            errorAsignacion = error;
+            asignando = false;
+            return;
+        }
+
+        // Recargar el detalle de la cita para reflejar la mascota asignada
+        asignando = false;
+        await CargarDetalleCita();
+        StateHasChanged();
+    }
+
+    private async Task CrearYAsignarMascota()
+    {
+        if (cita == null || !PuedeCrearMascota) return;
+        creandoMascota = true;
+        errorMascota = "";
+
+        // Asignar fecha si la proporcionó
+        if (fechaNacimientoMascota.HasValue)
+            nuevaMascota.FechaNacimiento = fechaNacimientoMascota.Value.ToString("yyyy-MM-dd");
+
+        var (mascota, error) = await CitaService.CrearMascotaClienteAsync(cita.ClienteId, nuevaMascota);
+
+        if (error != null)
+        {
+            errorMascota = error;
+            creandoMascota = false;
+            return;
+        }
+
+        // Asignar la nueva mascota a la cita
+        if (mascota != null)
+        {
+            var errorAsignar = await CitaService.AsignarMascotaAsync(Id, mascota.Id);
+            if (errorAsignar != null)
+            {
+                errorMascota = errorAsignar;
+                creandoMascota = false;
+                return;
+            }
+        }
+
+        creandoMascota = false;
+        // Recargar todo
+        await CargarDetalleCita();
+        StateHasChanged();
+    }
+
+    private async Task FinalizarConsulta()
+    {
+        if (!PuedeFinalizar) return;
+        finalizando = true;
+        errorConsulta = "";
+
+        var request = new DiagnosticoRequest
+        {
+            CitaId = Id,
+            Sintomas = sintomas.Trim(),
+            Diagnostico = diagnostico.Trim(),
+            Observaciones = string.IsNullOrWhiteSpace(observaciones) ? null : observaciones.Trim()
+        };
+
+        var (data, error) = await DiagnosticoService.RegistrarDiagnosticoAsync(request);
+        finalizando = false;
+
+        if (error != null)
+        {
+            errorConsulta = error;
+        }
+        else
+        {
+            consultaFinalizada = true;
+            diagnosticoIdGenerado = data?.Id ?? 0;
+            // Opcional: mostrar panel de tratamientos después de esto (TC-005)
+        }
+    }
+
+    private async Task AbrirModalTratamiento()
+    {
+        var (meds, _) = await InventarioService.GetInventarioAsync();
+        medicamentosDisponibles = meds.Where(m => m.Cantidad > 0).ToList();
+        
+        reqTratamiento = new TratamientoRequest 
+        { 
+            IdDiagnostico = diagnosticoIdGenerado,
+            FechaInicio = DateTime.Now.ToString("yyyy-MM-dd"), 
+            DuracionDias = 1 
+        };
+        errorTratamiento = "";
+        mostrarModalTratamiento = true;
+    }
+
+    private async Task GuardarTratamiento()
+    {
+        if (reqTratamiento.IdMedicamento <= 0)
+        {
+            errorTratamiento = "Seleccione un medicamento válido.";
+            return;
+        }
+
+        errorTratamiento = "";
+        guardandoTratamiento = true;
+
+        var (trat, err) = await TratamientoService.CrearTratamientoAsync(reqTratamiento);
+        
+        guardandoTratamiento = false;
+
+        if (err != null)
+        {
+            errorTratamiento = err;
+        }
+        else if (trat != null)
+        {
+            var med = medicamentosDisponibles.FirstOrDefault(m => m.Id == trat.IdMedicamento);
+            if (med != null) trat.MedicamentoNombre = med.Nombre;
+            
+            tratamientosRecetados.Add(trat);
+            mostrarModalTratamiento = false;
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Helpers de UI
+    // ──────────────────────────────────────────────────────────
+    private static string EstadoClase(string estado) => estado switch
+    {
+        "programada"  => "estado-programada",
+        "confirmada"  => "estado-confirmada",
+        "completada"  => "estado-completada",
+        "cancelada"   => "estado-cancelada",
+        "no_asistio"  => "estado-no-asistio",
+        _             => "estado-programada"
+    };
+
+    private static string EstadoIcono(string estado) => estado switch
+    {
+        "programada"  => "fa-clock",
+        "confirmada"  => "fa-circle-check",
+        "completada"  => "fa-flag-checkered",
+        "cancelada"   => "fa-ban",
+        "no_asistio"  => "fa-user-xmark",
+        _             => "fa-clock"
+    };
+
+    private static string EstadoLabel(string estado) => estado switch
+    {
+        "programada"  => "Programada",
+        "confirmada"  => "Confirmada",
+        "completada"  => "Completada",
+        "cancelada"   => "Cancelada",
+        "no_asistio"  => "No asistió",
+        _             => estado
+    };
+}

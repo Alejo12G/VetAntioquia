@@ -1,0 +1,455 @@
+@* ═══════════════════════════════════════════════════════════════
+   Especies.razor — Gestión de especies (veterinarios/administradores)
+   Ruta: /gestion/especies
+
+   Permite listar, crear, editar y eliminar especies.
+   Acceso: solo usuarios con rol "veterinario" o "administrador".
+═══════════════════════════════════════════════════════════════ *@
+
+@page "/gestion/especies"
+@using VeterinariaAntioquia.Shared.Models
+@using VeterinariaAntioquia.Shared.Services
+@using System.Security.Claims
+@inject EspecieService EspecieService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Especies — VetAntioquia</PageTitle>
+
+<div class="esp-wrap">
+
+    @* ── Encabezado ─────────────────────────────────────────── *@
+    <div class="esp-header">
+        <div class="esp-header-text">
+            <h1 class="esp-title">
+                <i class="fa-solid fa-paw"></i>
+                Gestión de Especies
+            </h1>
+            <p class="esp-sub">Administra las especies disponibles para el registro de mascotas</p>
+        </div>
+        <button class="esp-btn-nuevo" @onclick="AbrirFormularioNuevo">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nueva especie</span>
+        </button>
+    </div>
+
+    @* ── Error global ─────────────────────────────────────────── *@
+    @if (!string.IsNullOrEmpty(errorGlobal))
+    {
+        <div class="esp-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            @errorGlobal
+            @if (errorGlobal.Contains("Sesión"))
+            {
+                <a href="/auth/login">Iniciar sesión</a>
+            }
+        </div>
+    }
+
+    @* ── Formulario Nueva / Editar ────────────────────────────── *@
+    @if (mostrarFormulario)
+    {
+        <div class="esp-form-card">
+            <div class="esp-form-header">
+                <i class="fa-solid @(modoEdicion ? "fa-pen-to-square" : "fa-plus-circle")"></i>
+                <span>@(modoEdicion ? "Editar especie" : "Nueva especie")</span>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorFormulario))
+            {
+                <div class="esp-form-error">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    @errorFormulario
+                </div>
+            }
+
+            <div class="esp-form-body">
+
+                <div class="esp-field">
+                    <label class="esp-label">
+                        <i class="fa-solid fa-tag"></i>
+                        Nombre común <span class="esp-required">*</span>
+                    </label>
+                    <input class="esp-input"
+                           type="text"
+                           placeholder="Ej: Perro, Gato, Conejo…"
+                           maxlength="50"
+                           @bind="formNombre"
+                           @bind:event="oninput" />
+                </div>
+
+                <div class="esp-field">
+                    <label class="esp-label">
+                        <i class="fa-solid fa-flask"></i>
+                        Nombre científico <span class="esp-opcional">(opcional)</span>
+                    </label>
+                    <input class="esp-input"
+                           type="text"
+                           placeholder="Ej: Canis lupus familiaris"
+                           maxlength="100"
+                           @bind="formNombreCientifico"
+                           @bind:event="oninput" />
+                </div>
+
+                <div class="esp-field esp-field--full">
+                    <label class="esp-label">
+                        <i class="fa-solid fa-list-ul"></i>
+                        Características <span class="esp-opcional">(opcional)</span>
+                    </label>
+                    <textarea class="esp-textarea"
+                              placeholder="Describe características relevantes de esta especie…"
+                              maxlength="1000"
+                              rows="3"
+                              @bind="formCaracteristicas"
+                              @bind:event="oninput"></textarea>
+                </div>
+
+            </div>
+
+            <div class="esp-form-actions">
+                <button class="esp-btn-cancelar" @onclick="CerrarFormulario" disabled="@guardando">
+                    <i class="fa-solid fa-xmark"></i>
+                    Cancelar
+                </button>
+                <button class="esp-btn-guardar" @onclick="GuardarEspecie" disabled="@guardando">
+                    @if (guardando)
+                    {
+                        <span class="esp-spinner-sm"></span>
+                        <span>Guardando…</span>
+                    }
+                    else
+                    {
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>@(modoEdicion ? "Actualizar" : "Guardar")</span>
+                    }
+                </button>
+            </div>
+        </div>
+    }
+
+    @* ── Estado de carga ─────────────────────────────────────── *@
+    @if (cargando)
+    {
+        <div class="esp-loading">
+            <span class="esp-spinner"></span>
+            Cargando especies…
+        </div>
+    }
+    else if (!especies.Any())
+    {
+        <div class="esp-empty">
+            <div class="esp-empty-ico">
+                <i class="fa-solid fa-paw"></i>
+            </div>
+            <h3 class="esp-empty-title">No hay especies registradas</h3>
+            <p class="esp-empty-sub">Haz clic en "Nueva especie" para agregar la primera.</p>
+        </div>
+    }
+    else
+    {
+        @* ── Contador ────────────────────────────────────────── *@
+        <div class="esp-count">
+            <i class="fa-solid fa-layer-group"></i>
+            @especies.Count especie@(especies.Count == 1 ? "" : "s") registrada@(especies.Count == 1 ? "" : "s")
+        </div>
+
+        @* ── Grid de tarjetas ─────────────────────────────────── *@
+        <div class="esp-grid">
+            @foreach (var esp in especies)
+            {
+                <div class="esp-card @(especieEliminar?.Id == esp.Id ? "eliminando" : "")">
+
+                    <div class="esp-card-icon">
+                        <i class="fa-solid fa-paw"></i>
+                    </div>
+
+                    <div class="esp-card-body">
+                        <h3 class="esp-card-nombre">@esp.Nombre</h3>
+
+                        @if (!string.IsNullOrEmpty(esp.NombreCientifico))
+                        {
+                            <p class="esp-card-cientifico">
+                                <i class="fa-solid fa-flask"></i>
+                                <em>@esp.NombreCientifico</em>
+                            </p>
+                        }
+
+                        @if (!string.IsNullOrEmpty(esp.Caracteristicas))
+                        {
+                            <p class="esp-card-caract">@esp.Caracteristicas</p>
+                        }
+                    </div>
+
+                    <div class="esp-card-actions">
+                        <button class="esp-btn-editar"
+                                title="Editar especie"
+                                @onclick="() => AbrirFormularioEditar(esp)">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="esp-btn-eliminar"
+                                title="Eliminar especie"
+                                @onclick="() => ConfirmarEliminar(esp)">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Modal de confirmación de eliminación ─────────────────── *@
+    @if (especieEliminar != null)
+    {
+        <div class="esp-overlay" @onclick="CancelarEliminar">
+            <div class="esp-confirm-modal" @onclick:stopPropagation="true">
+                <div class="esp-confirm-icon">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="esp-confirm-title">¿Eliminar especie?</h3>
+                <p class="esp-confirm-msg">
+                    Vas a eliminar <strong>@especieEliminar.Nombre</strong>.
+                    Esta acción no se puede deshacer y fallará si hay mascotas de esta especie registradas.
+                </p>
+
+                @if (!string.IsNullOrEmpty(errorEliminar))
+                {
+                    <div class="esp-confirm-error">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        @errorEliminar
+                    </div>
+                }
+
+                <div class="esp-confirm-actions">
+                    <button class="esp-btn-cancelar" @onclick="CancelarEliminar" disabled="@eliminando">
+                        <i class="fa-solid fa-xmark"></i>
+                        Cancelar
+                    </button>
+                    <button class="esp-btn-confirmar-eliminar" @onclick="EjecutarEliminar" disabled="@eliminando">
+                        @if (eliminando)
+                        {
+                            <span class="esp-spinner-sm"></span>
+                            <span>Eliminando…</span>
+                        }
+                        else
+                        {
+                            <i class="fa-solid fa-trash"></i>
+                            <span>Sí, eliminar</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    // ──────────────────────────────────────────────────────────
+    //  Estado del componente
+    // ──────────────────────────────────────────────────────────
+
+    private List<Especie> especies = new();
+    private bool   cargando       = true;
+    private string errorGlobal    = "";
+
+    // ── Formulario ────────────────────────────────────────────
+    private bool   mostrarFormulario  = false;
+    private bool   modoEdicion        = false;
+    private bool   guardando          = false;
+    private string errorFormulario    = "";
+    private int?   especieEditandoId  = null;
+
+    private string  formNombre             = "";
+    private string? formNombreCientifico   = null;
+    private string? formCaracteristicas    = null;
+
+    // ── Confirmación eliminar ─────────────────────────────────
+    private Especie? especieEliminar = null;
+    private bool     eliminando      = false;
+    private string   errorEliminar   = "";
+
+    // ──────────────────────────────────────────────────────────
+    //  Lifecycle
+    // ──────────────────────────────────────────────────────────
+
+    protected override Task OnInitializedAsync() => Task.CompletedTask;
+
+    private bool _cargaRealizada = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _cargaRealizada) return;
+        _cargaRealizada = true;
+
+        // Guard de autenticación + autorización
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user      = authState.User;
+
+        if (!user.Identity?.IsAuthenticated ?? true)
+        {
+            Navigation.NavigateTo("/auth/login", forceLoad: false);
+            return;
+        }
+
+        var rol = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? "";
+        if (rol != "veterinario" && rol != "administrador")
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        await CargarEspecies();
+        StateHasChanged();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Datos
+    // ──────────────────────────────────────────────────────────
+
+    private async Task CargarEspecies()
+    {
+        cargando = true;
+        errorGlobal = "";
+        var (data, error) = await EspecieService.GetEspeciesAsync();
+
+        if (error != null)
+            errorGlobal = error;
+        else
+            especies = data;
+
+        cargando = false;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Formulario — Nuevo
+    // ──────────────────────────────────────────────────────────
+
+    private void AbrirFormularioNuevo()
+    {
+        modoEdicion         = false;
+        especieEditandoId   = null;
+        formNombre          = "";
+        formNombreCientifico = null;
+        formCaracteristicas  = null;
+        errorFormulario     = "";
+        mostrarFormulario   = true;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Formulario — Editar
+    // ──────────────────────────────────────────────────────────
+
+    private void AbrirFormularioEditar(Especie esp)
+    {
+        modoEdicion          = true;
+        especieEditandoId    = esp.Id;
+        formNombre           = esp.Nombre;
+        formNombreCientifico = esp.NombreCientifico;
+        formCaracteristicas  = esp.Caracteristicas;
+        errorFormulario      = "";
+        mostrarFormulario    = true;
+    }
+
+    private void CerrarFormulario()
+    {
+        mostrarFormulario = false;
+        errorFormulario   = "";
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Guardar (crear o editar)
+    // ──────────────────────────────────────────────────────────
+
+    private async Task GuardarEspecie()
+    {
+        errorFormulario = "";
+
+        if (string.IsNullOrWhiteSpace(formNombre))
+        {
+            errorFormulario = "El nombre común es obligatorio.";
+            return;
+        }
+
+        guardando = true;
+
+        if (modoEdicion && especieEditandoId.HasValue)
+        {
+            var (data, error) = await EspecieService.EditarEspecieAsync(
+                especieEditandoId.Value,
+                formNombre.Trim(),
+                string.IsNullOrWhiteSpace(formNombreCientifico) ? null : formNombreCientifico.Trim(),
+                string.IsNullOrWhiteSpace(formCaracteristicas)  ? null : formCaracteristicas.Trim()
+            );
+
+            if (error != null)
+            {
+                errorFormulario = error;
+            }
+            else if (data != null)
+            {
+                var idx = especies.FindIndex(e => e.Id == data.Id);
+                if (idx >= 0) especies[idx] = data;
+                mostrarFormulario = false;
+            }
+        }
+        else
+        {
+            var (data, error) = await EspecieService.CrearEspecieAsync(
+                formNombre.Trim(),
+                string.IsNullOrWhiteSpace(formNombreCientifico) ? null : formNombreCientifico.Trim(),
+                string.IsNullOrWhiteSpace(formCaracteristicas)  ? null : formCaracteristicas.Trim()
+            );
+
+            if (error != null)
+            {
+                errorFormulario = error;
+            }
+            else if (data != null)
+            {
+                especies.Add(data);
+                especies = especies.OrderBy(e => e.Nombre).ToList();
+                mostrarFormulario = false;
+            }
+        }
+
+        guardando = false;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Eliminar
+    // ──────────────────────────────────────────────────────────
+
+    private void ConfirmarEliminar(Especie esp)
+    {
+        especieEliminar = esp;
+        errorEliminar   = "";
+    }
+
+    private void CancelarEliminar()
+    {
+        if (eliminando) return;
+        especieEliminar = null;
+        errorEliminar   = "";
+    }
+
+    private async Task EjecutarEliminar()
+    {
+        if (especieEliminar is null) return;
+        eliminando    = true;
+        errorEliminar = "";
+
+        var (ok, error) = await EspecieService.EliminarEspecieAsync(especieEliminar.Id);
+
+        if (!ok)
+        {
+            errorEliminar = error ?? "No se pudo eliminar.";
+        }
+        else
+        {
+            especies.RemoveAll(e => e.Id == especieEliminar.Id);
+            especieEliminar = null;
+        }
+
+        eliminando = false;
+    }
+}

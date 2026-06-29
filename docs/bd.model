@@ -1,0 +1,299 @@
+create table especies
+(
+    id                int auto_increment
+        primary key,
+    nombre_comun      varchar(50)  not null,
+    nombre_cientifico varchar(100) null,
+    caracteristicas   text         null
+)
+    collate = utf8mb4_unicode_ci;
+
+create table medicamentos
+(
+    id                 int auto_increment
+        primary key,
+    nombre             varchar(100)   not null,
+    tipo               varchar(50)    not null,
+    descripcion        text           null,
+    contraindicaciones text           null,
+    fabricante         varchar(100)   null,
+    precio             decimal(10, 2) not null
+)
+    collate = utf8mb4_unicode_ci;
+
+create table inventarios
+(
+    id                  int auto_increment
+        primary key,
+    id_medicamento      int                                not null,
+    cantidad            int      default 0                 not null,
+    cantidad_minima     int      default 5                 null,
+    fecha_vencimiento   date                               null,
+    lote                varchar(50)                        null,
+    fecha_actualizacion datetime default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP,
+    constraint id_medicamento
+        unique (id_medicamento),
+    constraint fk_inv_med
+        foreign key (id_medicamento) references medicamentos (id)
+            on update cascade on delete cascade
+)
+    collate = utf8mb4_unicode_ci;
+
+create table servicios
+(
+    id                    int auto_increment
+        primary key,
+    nombre                varchar(100)                                                                                not null,
+    descripcion           text                                                                                        null,
+    categoria             enum ('clinica', 'estetica', 'cirugia', 'vacunacion', 'laboratorio', 'otro') default 'otro' not null,
+    precio_base           decimal(10, 2)                                                                              not null,
+    duracion_estimada_min int                                                                          default 30     not null,
+    activo                tinyint(1)                                                                   default 1      not null
+)
+    collate = utf8mb4_unicode_ci;
+
+create table usuarios
+(
+    id             int auto_increment
+        primary key,
+    nombre         varchar(100)                                     not null,
+    email          varchar(100)                                     not null,
+    telefono       varchar(15)                                      null,
+    direccion      varchar(200)                                     null,
+    preferencias   text                                             null,
+    rol            enum ('administrador', 'veterinario', 'cliente') not null,
+    password_hash  varchar(255)                                     not null,
+    fecha_registro datetime   default CURRENT_TIMESTAMP             null,
+    activo         tinyint(1) default 1                             null,
+    constraint email
+        unique (email)
+)
+    collate = utf8mb4_unicode_ci;
+
+create table mascotas
+(
+    id               int auto_increment
+        primary key,
+    nombre           varchar(100)                         not null,
+    fecha_nacimiento date                                 null,
+    sexo             enum ('macho', 'hembra')             not null,
+    esterilizado     tinyint(1) default 0                 null,
+    id_especie       int                                  not null,
+    id_usuario       int                                  not null,
+    foto_url         varchar(255)                         null,
+    fecha_registro   datetime   default CURRENT_TIMESTAMP null,
+    constraint fk_mascota_especie
+        foreign key (id_especie) references especies (id)
+            on update cascade,
+    constraint fk_mascotas_usuarios
+        foreign key (id_usuario) references usuarios (id)
+            on update cascade
+)
+    collate = utf8mb4_unicode_ci;
+
+create index fk_mascota_cliente
+    on mascotas (id_usuario);
+
+create table notificaciones
+(
+    id            int auto_increment
+        primary key,
+    id_usuario    int                                         not null,
+    tipo          enum ('cita', 'vacuna', 'stock', 'general') not null,
+    titulo        varchar(200)                                not null,
+    mensaje       text                                        not null,
+    leida         tinyint(1) default 0                        null,
+    fecha_envio   datetime   default CURRENT_TIMESTAMP        null,
+    fecha_lectura datetime                                    null,
+    constraint fk_notif_usuario
+        foreign key (id_usuario) references usuarios (id)
+            on update cascade on delete cascade
+)
+    collate = utf8mb4_unicode_ci;
+
+create table sesiones
+(
+    id             int auto_increment
+        primary key,
+    id_usuario     int                                 not null,
+    token          varchar(255)                        not null,
+    fecha_creacion timestamp default CURRENT_TIMESTAMP null,
+    constraint sesiones_ibfk_1
+        foreign key (id_usuario) references usuarios (id)
+            on delete cascade
+);
+
+create index id_usuario
+    on sesiones (id_usuario);
+
+create table vacunas
+(
+    id                        int auto_increment
+        primary key,
+    nombre                    varchar(100) not null,
+    descripcion               text         null,
+    contraindicaciones        text         null,
+    duracion_proteccion_meses int          null
+)
+    collate = utf8mb4_unicode_ci;
+
+create table veterinarios
+(
+    id_usuario           int          not null
+        primary key,
+    especialidad         varchar(100) null,
+    licencia_profesional varchar(50)  not null,
+    constraint fk_veterinario_usuario
+        foreign key (id_usuario) references usuarios (id)
+            on update cascade on delete cascade
+)
+    collate = utf8mb4_unicode_ci;
+
+create table citas
+(
+    id               int auto_increment
+        primary key,
+    id_usuario       int                                                                                             not null,
+    id_mascota       int                                                                                             null,
+    id_veterinario   int                                                                                             not null,
+    id_servicio      int                                                                                             not null,
+    fecha            datetime                                                                                        not null,
+    estado           enum ('programada', 'confirmada', 'completada', 'cancelada', 'no_asistio') default 'programada' not null,
+    motivo           text                                                                                            null,
+    duracion_minutos int                                                                        default 30           null,
+    constraint fk_cita_mascota
+        foreign key (id_mascota) references mascotas (id)
+            on update cascade on delete cascade,
+    constraint fk_citas_servicios
+        foreign key (id_servicio) references servicios (id)
+            on update cascade,
+    constraint fk_citas_usuario
+        foreign key (id_usuario) references usuarios (id)
+            on update cascade,
+    constraint fk_citas_veterinario
+        foreign key (id_veterinario) references veterinarios (id_usuario)
+            on update cascade
+)
+    collate = utf8mb4_unicode_ci;
+
+create index fk_cita_veterinario
+    on citas (id_veterinario);
+
+create table diagnosticos
+(
+    id             int auto_increment
+        primary key,
+    id_cita        int                                not null,
+    id_veterinario int                                not null,
+    sintomas       text                               not null,
+    diagnostico    text                               not null,
+    observaciones  text                               null,
+    fecha          datetime default CURRENT_TIMESTAMP null,
+    constraint id_cita
+        unique (id_cita),
+    constraint fk_diag_cita
+        foreign key (id_cita) references citas (id)
+            on update cascade on delete cascade,
+    constraint fk_diagnosticos_veterinario
+        foreign key (id_veterinario) references veterinarios (id_usuario)
+            on update cascade
+)
+    collate = utf8mb4_unicode_ci;
+
+create index fk_diag_vet
+    on diagnosticos (id_veterinario);
+
+create table facturas
+(
+    id            int auto_increment
+        primary key,
+    id_usuario    int                                                                 not null,
+    id_cita       int                                                                 null,
+    total         decimal(10, 2)                            default 0.00              not null,
+    estado        enum ('pendiente', 'pagada', 'cancelada') default 'pendiente'       null,
+    fecha_emision datetime                                  default CURRENT_TIMESTAMP null,
+    fecha_pago    datetime                                                            null,
+    metodo_pago   enum ('efectivo', 'tarjeta', 'transferencia')                       null,
+    constraint fk_factura_cita
+        foreign key (id_cita) references citas (id)
+            on update cascade on delete set null,
+    constraint fk_facturas_usuarios
+        foreign key (id_usuario) references usuarios (id)
+            on update cascade
+)
+    collate = utf8mb4_unicode_ci;
+
+create table factura_detalles
+(
+    id              int auto_increment
+        primary key,
+    id_factura      int            not null,
+    id_medicamento  int            null,
+    id_servicio     int            null,
+    descripcion     varchar(200)   not null,
+    cantidad        int default 1  not null,
+    precio_unitario decimal(10, 2) not null,
+    subtotal        decimal(10, 2) not null,
+    constraint fk_det_factura
+        foreign key (id_factura) references facturas (id)
+            on update cascade on delete cascade,
+    constraint fk_det_med
+        foreign key (id_medicamento) references medicamentos (id)
+            on update cascade on delete set null,
+    constraint fk_detalles_servicio
+        foreign key (id_servicio) references servicios (id)
+            on update cascade on delete set null
+)
+    collate = utf8mb4_unicode_ci;
+
+create index fk_factura_cliente
+    on facturas (id_usuario);
+
+create table tratamientos
+(
+    id             int auto_increment
+        primary key,
+    id_diagnostico int                                                         not null,
+    id_medicamento int                                                         not null,
+    dosis          varchar(50)                                                 not null,
+    frecuencia     varchar(50)                                                 not null,
+    duracion_dias  int                                                         not null,
+    instrucciones  text                                                        null,
+    estado         enum ('activo', 'completado', 'cancelado') default 'activo' null,
+    fecha_inicio   date                                                        not null,
+    fecha_fin      date                                                        null,
+    constraint fk_trata_diag
+        foreign key (id_diagnostico) references diagnosticos (id)
+            on update cascade on delete cascade,
+    constraint fk_trata_med
+        foreign key (id_medicamento) references medicamentos (id)
+            on update cascade
+)
+    collate = utf8mb4_unicode_ci;
+
+create table vacunaciones
+(
+    id               int auto_increment
+        primary key,
+    id_mascota       int         not null,
+    id_vacuna        int         not null,
+    id_veterinario   int         not null,
+    fecha_aplicacion date        not null,
+    fecha_proxima    date        not null,
+    lote             varchar(50) null,
+    observaciones    text        null,
+    constraint fk_vacunacion_mascota
+        foreign key (id_mascota) references mascotas (id)
+            on update cascade on delete cascade,
+    constraint fk_vacunacion_vacuna
+        foreign key (id_vacuna) references vacunas (id)
+            on update cascade,
+    constraint fk_vacunaciones_veterinario
+        foreign key (id_veterinario) references veterinarios (id_usuario)
+            on update cascade
+)
+    collate = utf8mb4_unicode_ci;
+
+create index fk_vacunacion_vet
+    on vacunaciones (id_veterinario);
+

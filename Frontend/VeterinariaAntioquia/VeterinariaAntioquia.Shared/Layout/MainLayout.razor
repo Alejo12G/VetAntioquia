@@ -1,0 +1,77 @@
+@inherits LayoutComponentBase
+@using VeterinariaAntioquia.Shared.Services
+@using VeterinariaAntioquia.Shared.Components
+@using VeterinariaAntioquia.Shared.Services.Styles
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject VeterinariaAntioquia.Shared.Services.Styles.CustomToastService Toast
+<div class="page @(sidebarCollapsed ? "sidebar-collapsed" : "")">
+    <NavMenu OnToggleCollapse="ToggleSidebar" IsCollapsed="sidebarCollapsed" />
+
+    <main>
+        <div class="top-row px-4">
+            <AuthorizeView>
+                <Authorized>
+                    <div class="d-flex align-items-center gap-3">
+                        <NotificacionBell />
+                        <div class="dropdown @(isDropdownOpen ? "show" : "")">
+                            <button class="btn btn-secondary dropdown-toggle" type="button" @onclick="ToggleDropdown">
+                            @context.User.Identity?.Name
+                        </button>
+                        <div class="dropdown-menu @(isDropdownOpen ? "show" : "")">
+                            <a class="dropdown-item" href="#">Configuracion</a>
+                            <a class="dropdown-item" href="#" @onclick="HandleLogout">Cerrar Sesion</a>
+                        </div>
+                    </div>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <a clas="bottom-nav-link" href="auth/login">Iniciar Sesion</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+    <CustomToastContainer />
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private bool sidebarCollapsed = false;
+    private bool isDropdownOpen = false;
+
+    /// <summary>
+    /// Alterna el estado de visibilidad del menú lateral.
+    /// </summary>
+    private void ToggleSidebar()
+    {
+        sidebarCollapsed = !sidebarCollapsed;
+    }
+
+    /// <summary>
+    /// Alterna el estado de apertura del menú desplegable de usuario.
+    /// </summary>
+    private void ToggleDropdown()
+    {
+        isDropdownOpen = !isDropdownOpen;
+    }
+
+    /// <summary>
+    /// Gestiona el proceso de cierre de sesión.
+    /// Realiza la limpieza de autenticación, notifica al usuario y redirige al inicio.
+    /// </summary>
+    private async Task HandleLogout()
+    {
+        await AuthService.Logout();
+        Toast.ShowWarning("Sesión cerrada correctamente");
+        NavigationManager.NavigateTo("/", true);
+    }
+}

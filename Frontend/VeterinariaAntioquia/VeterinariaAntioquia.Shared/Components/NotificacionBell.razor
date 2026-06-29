@@ -1,0 +1,98 @@
+@using VeterinariaAntioquia.Shared.Models
+@using VeterinariaAntioquia.Shared.Services
+@inject NotificacionService NotificacionService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="notif-container" @onclick:stopPropagation="true">
+    <button class="notif-bell" @onclick="ToggleDropdown">
+        <i class="fa-solid fa-bell"></i>
+        @if (UnreadCount > 0)
+        {
+            <span class="notif-badge">@UnreadCount</span>
+        }
+    </button>
+
+    @if (isOpen)
+    {
+        <div class="notif-dropdown">
+            <div class="notif-header">
+                <h4>Notificaciones</h4>
+                <button class="notif-refresh" @onclick="CargarNotificaciones"><i class="fa-solid fa-rotate-right"></i></button>
+            </div>
+            
+            <div class="notif-body">
+                @if (cargando)
+                {
+                    <div class="notif-empty">Cargando...</div>
+                }
+                else if (!notificaciones.Any())
+                {
+                    <div class="notif-empty">No tienes notificaciones.</div>
+                }
+                else
+                {
+                    @foreach (var n in notificaciones)
+                    {
+                        <div class="notif-item @(n.Leida ? "read" : "unread")" @onclick="() => ClickNotificacion(n)">
+                            <div class="notif-icon">
+                                @if (n.Tipo == "cita") { <i class="fa-solid fa-calendar-check" style="color:var(--primary-color)"></i> }
+                                else if (n.Tipo == "factura") { <i class="fa-solid fa-file-invoice-dollar" style="color:#16a34a"></i> }
+                                else { <i class="fa-solid fa-circle-info" style="color:#eab308"></i> }
+                            </div>
+                            <div class="notif-content">
+                                <strong>@n.Titulo</strong>
+                                <p>@n.Mensaje</p>
+                                <small>@n.FechaEnvio</small>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isOpen = false;
+    private bool cargando = false;
+    private List<Notificacion> notificaciones = new();
+    
+    private int UnreadCount => notificaciones.Count(n => !n.Leida);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarNotificaciones();
+    }
+
+    private void ToggleDropdown()
+    {
+        isOpen = !isOpen;
+        if (isOpen) _ = CargarNotificaciones();
+    }
+
+    private async Task CargarNotificaciones()
+    {
+        cargando = true;
+        var (data, err) = await NotificacionService.GetMisNotificacionesAsync();
+        if (err == null) notificaciones = data;
+        cargando = false;
+        StateHasChanged();
+    }
+
+    private async Task ClickNotificacion(Notificacion n)
+    {
+        if (!n.Leida)
+        {
+            var (ok, _) = await NotificacionService.MarcarComoLeidaAsync(n.Id);
+            if (ok) n.Leida = true;
+        }
+
+        isOpen = false;
+        if (n.Tipo == "cita") Nav.NavigateTo("/citas");
+        else if (n.Tipo == "factura") Nav.NavigateTo("/facturas"); // asumiendo que el cliente pueda ver facturas luego
+    }
+
+    // Para cerrar el dropdown si se hace click fuera (simplificado)
+    public void Dispose() {}
+}

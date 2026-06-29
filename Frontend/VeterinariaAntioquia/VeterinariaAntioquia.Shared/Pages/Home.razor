@@ -1,0 +1,134 @@
+﻿@page "/"
+@using VeterinariaAntioquia.Shared.Services
+@inject IFormFactor FormFactor
+@using VeterinariaAntioquia.Shared.Models.Styles;
+@using VeterinariaAntioquia.Shared.Services.Styles;
+@inject VeterinariaAntioquia.Shared.Services.Styles.CustomToastService Toast
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthStateProvider
+<PageTitle>Inicio — Veterinaria Antioquia</PageTitle>
+
+<!-- ══ HERO ══════════════════════════════════════════════ -->
+<div class="home-hero">
+    <div class="hero-accent-bar"></div>
+    <div class="hero-body">
+        <div class="hero-eyebrow">
+            <i class="fa-solid fa-circle-check"></i>
+            Abierto hoy · 7:00 am – 7:00 pm
+        </div>
+
+        <AuthorizeView>
+            <Authorized>
+                <h1 class="hero-title">Hola, <span class="hero-name">@context.User.Identity?.Name</span>.</h1>
+                <p class="hero-sub">¿Qué necesita tu mascota hoy?</p>
+                <div class="hero-actions">
+                    <a href="/citas/nueva" class="btn-hero-primary">
+                        <i class="fa-solid fa-calendar-plus"></i> Nueva cita
+                    </a>
+                    <a href="/historial" class="btn-hero-ghost">
+                        Ver historial <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <h1 class="hero-title">Veterinaria<br><span class="hero-name">Antioquia</span></h1>
+                <p class="hero-sub">Cuidado veterinario con criterio clínico y trato cercano.</p>
+                <div class="hero-actions">
+                    <a href="auth/login" class="btn-hero-primary">
+                        <i class="fa-solid fa-right-to-bracket"></i> Iniciar sesión
+                    </a>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+</div>
+
+<!-- ══ TABLERO DE ANUNCIOS ════════════════════════════════ -->
+<div class="home-board-wrap">
+    <div class="board-header">
+        <span class="board-label">NOVEDADES</span>
+        <span class="board-date">@DateTime.Now.ToString("dddd, d 'de' MMMM", new System.Globalization.CultureInfo("es-CO"))</span>
+    </div>
+
+    <div class="board">
+
+        <div class="board-item">
+            <div class="board-icon-col">
+                <i class="fa-solid fa-syringe"></i>
+            </div>
+            <div class="board-content">
+                <span class="board-tag">Este sábado</span>
+                <h4 class="board-title">Campaña de Vacunación</h4>
+                <p class="board-desc">20 % de descuento en vacunas esenciales: moquillo, rabia y leptospirosis. Cupos limitados, no requiere cita previa.</p>
+                <a href="/citas/nueva" class="board-link">Reservar cupo <i class="fa-solid fa-chevron-right"></i></a>
+            </div>
+        </div>
+
+        <div class="board-divider"></div>
+
+        <div class="board-item">
+            <div class="board-icon-col">
+                <i class="fa-solid fa-scissors"></i>
+            </div>
+            <div class="board-content">
+                <span class="board-tag">Disponibilidad limitada</span>
+                <h4 class="board-title">Peluquería Canina</h4>
+                <p class="board-desc">Baño, corte y aromaterapia. Agenda con mínimo 48 horas de anticipación para garantizar tu turno.</p>
+                <a href="/citas/nueva" class="board-link">Agendar <i class="fa-solid fa-chevron-right"></i></a>
+            </div>
+        </div>
+
+        <div class="board-divider"></div>
+
+        <div class="board-item">
+            <div class="board-icon-col">
+                <i class="fa-solid fa-stethoscope"></i>
+            </div>
+            <div class="board-content">
+                <span class="board-tag">Siempre disponible</span>
+                <h4 class="board-title">Consulta General</h4>
+                <p class="board-desc">Revisión integral: peso, dientes, articulaciones y comportamiento. Ideal como chequeo semestral.</p>
+                <a href="/citas/nueva" class="board-link">Pedir cita <i class="fa-solid fa-chevron-right"></i></a>
+            </div>
+        </div>
+
+        <div class="board-divider"></div>
+
+        <div class="board-item">
+            <div class="board-icon-col">
+                <i class="fa-solid fa-box-open"></i>
+            </div>
+            <div class="board-content">
+                <span class="board-tag">Nuevo en tienda</span>
+                <h4 class="board-title">Alimentos Premium</h4>
+                <p class="board-desc">Llegó la línea Royal Canin Veterinary Diet. Consulta con tu médico cuál es la opción indicada para tu mascota.</p>
+                <a href="/tienda" class="board-link">Ver catálogo <i class="fa-solid fa-chevron-right"></i></a>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private string factor => FormFactor.GetFormFactor();
+    private string platform => FormFactor.GetPlatform();
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            ShowToast();
+        }
+    }
+
+    private async void ShowToast()
+    {
+        var authUser = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authUser.User;
+        if (user.Identity is not null && user.Identity.IsAuthenticated)
+        {
+            var nombreUsuario = user.Identity?.Name;
+            Toast.ShowSuccess($"¡Bienvenido de vuelta {nombreUsuario}!");
+        }
+    }
+}

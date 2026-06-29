@@ -1,0 +1,631 @@
+/* ═══════════════════════════════════════════════════════════════
+   Especies.razor.css — Estilos del panel de gestión de especies
+   Scope: solo aplica al componente Especies.razor
+
+   Paleta:
+     · Primary     → #3b82f6  (azul)
+     · Danger      → #ef4444  (rojo)
+     · Success     → #00bf63  (verde, consistente con la app)
+     · Surface     → #f8fafc
+     · Border      → #e2e8f0
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Contenedor principal ─────────────────────────────────── */
+.esp-wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* ── Encabezado ───────────────────────────────────────────── */
+.esp-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.esp-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #111;
+    margin: 0;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.esp-title i {
+    color: #3b82f6;
+    font-size: 1.2rem;
+}
+
+.esp-sub {
+    font-size: 0.78rem;
+    color: #888;
+    margin: 0.1rem 0 0;
+}
+
+/* ── Botón nueva especie ──────────────────────────────────── */
+.esp-btn-nuevo {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    white-space: nowrap;
+}
+
+.esp-btn-nuevo:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+}
+
+.esp-btn-nuevo:active {
+    transform: translateY(0);
+}
+
+/* ── Error global ─────────────────────────────────────────── */
+.esp-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.esp-error a {
+    color: #dc2626;
+    text-decoration: underline;
+    margin-left: 0.25rem;
+}
+
+/* ── Formulario ───────────────────────────────────────────── */
+.esp-form-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    animation: esp-slide-down 0.2s ease;
+}
+
+@keyframes esp-slide-down {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0);     }
+}
+
+.esp-form-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(90deg, #f0f7ff 0%, #fff 100%);
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1e40af;
+}
+
+.esp-form-header i {
+    font-size: 1rem;
+}
+
+.esp-form-error {
+    background: #fef2f2;
+    border-left: 4px solid #ef4444;
+    color: #dc2626;
+    padding: 0.7rem 1.25rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.esp-form-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding: 1.25rem;
+}
+
+.esp-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.esp-field--full {
+    grid-column: 1 / -1;
+}
+
+.esp-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.esp-label i {
+    color: #3b82f6;
+    font-size: 0.72rem;
+}
+
+.esp-required {
+    color: #ef4444;
+    font-size: 0.85rem;
+}
+
+.esp-opcional {
+    color: #94a3b8;
+    font-weight: 400;
+    font-size: 0.75rem;
+}
+
+.esp-input,
+.esp-textarea {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.875rem;
+    color: #1e293b;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.esp-input:focus,
+.esp-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    background: #fff;
+}
+
+.esp-textarea {
+    min-height: 80px;
+}
+
+/* ── Acciones del formulario ──────────────────────────────── */
+.esp-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #f0f4f8;
+    background: #fafbfc;
+}
+
+/* ── Botones compartidos ──────────────────────────────────── */
+.esp-btn-cancelar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.55rem 1rem;
+    font-size: 0.83rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.esp-btn-cancelar:hover:not(:disabled) {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.esp-btn-guardar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.55rem 1.1rem;
+    font-size: 0.83rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(59, 130, 246, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.esp-btn-guardar:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 14px rgba(59, 130, 246, 0.4);
+}
+
+.esp-btn-guardar:disabled,
+.esp-btn-cancelar:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* ── Loading ──────────────────────────────────────────────── */
+.esp-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 3rem 1rem;
+    justify-content: center;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.esp-spinner {
+    width: 22px;
+    height: 22px;
+    border: 3px solid #dbeafe;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: esp-spin 0.75s linear infinite;
+    flex-shrink: 0;
+}
+
+.esp-spinner-sm {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: esp-spin 0.75s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes esp-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Estado vacío ─────────────────────────────────────────── */
+.esp-empty {
+    text-align: center;
+    padding: 3.5rem 1rem;
+    color: #94a3b8;
+}
+
+.esp-empty-ico {
+    font-size: 3rem;
+    color: #cbd5e1;
+    margin-bottom: 0.75rem;
+}
+
+.esp-empty-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #64748b;
+    margin: 0 0 0.35rem;
+}
+
+.esp-empty-sub {
+    font-size: 0.82rem;
+    margin: 0;
+}
+
+/* ── Contador ─────────────────────────────────────────────── */
+.esp-count {
+    font-size: 0.8rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 500;
+}
+
+.esp-count i {
+    color: #3b82f6;
+}
+
+/* ── Grid de tarjetas ─────────────────────────────────────── */
+.esp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+/* ── Tarjeta especie ──────────────────────────────────────── */
+.esp-card {
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.esp-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, #3b82f6 0%, #93c5fd 100%);
+    border-radius: 14px 0 0 14px;
+}
+
+.esp-card:hover {
+    box-shadow: 0 6px 24px rgba(59, 130, 246, 0.12);
+    transform: translateY(-2px);
+    border-color: #bfdbfe;
+}
+
+.esp-card.eliminando {
+    border-color: #fca5a5;
+    background: #fff5f5;
+}
+
+/* ── Icono de la tarjeta ─────────────────────────────────── */
+.esp-card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #3b82f6;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+/* ── Cuerpo de la tarjeta ─────────────────────────────────── */
+.esp-card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.esp-card-nombre {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+}
+
+.esp-card-cientifico {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.esp-card-cientifico i {
+    color: #94a3b8;
+    font-size: 0.7rem;
+}
+
+.esp-card-cientifico em {
+    font-style: italic;
+}
+
+.esp-card-caract {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    margin: 0.2rem 0 0;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── Acciones de la tarjeta ───────────────────────────────── */
+.esp-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.4rem;
+}
+
+.esp-btn-editar,
+.esp-btn-eliminar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1.5px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.esp-btn-editar {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #2563eb;
+}
+
+.esp-btn-editar:hover {
+    background: #dbeafe;
+    transform: scale(1.08);
+}
+
+.esp-btn-eliminar {
+    background: #fff5f5;
+    border-color: #fecaca;
+    color: #ef4444;
+}
+
+.esp-btn-eliminar:hover {
+    background: #fee2e2;
+    transform: scale(1.08);
+}
+
+/* ── Modal overlay ─────────────────────────────────────────── */
+.esp-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    animation: esp-fade-in 0.18s ease;
+}
+
+@keyframes esp-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.esp-confirm-modal {
+    background: #fff;
+    border-radius: 18px;
+    padding: 2rem 1.75rem;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.85rem;
+    text-align: center;
+    animation: esp-pop 0.2s ease;
+}
+
+@keyframes esp-pop {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1);    }
+}
+
+.esp-confirm-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #fef2f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ef4444;
+    font-size: 1.5rem;
+    border: 2px solid #fecaca;
+}
+
+.esp-confirm-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+}
+
+.esp-confirm-msg {
+    font-size: 0.84rem;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.esp-confirm-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+}
+
+.esp-confirm-actions {
+    display: flex;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 0.25rem;
+}
+
+.esp-confirm-actions > * {
+    flex: 1;
+    justify-content: center;
+}
+
+.esp-btn-confirmar-eliminar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(239, 68, 68, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.esp-btn-confirmar-eliminar:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 14px rgba(239, 68, 68, 0.4);
+}
+
+.esp-btn-confirmar-eliminar:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .esp-form-body {
+        grid-template-columns: 1fr;
+    }
+
+    .esp-field--full {
+        grid-column: 1;
+    }
+
+    .esp-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .esp-header {
+        flex-direction: column;
+    }
+
+    .esp-btn-nuevo {
+        width: 100%;
+        justify-content: center;
+    }
+}

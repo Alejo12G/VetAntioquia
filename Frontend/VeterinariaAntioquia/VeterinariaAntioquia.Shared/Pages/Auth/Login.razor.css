@@ -1,0 +1,253 @@
+/* ════════════════════════════════
+   Centrado de página
+   ════════════════════════════════ */
+.auth-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1rem 5rem; /* padding-bottom para bottom-nav en móvil */
+    background: #f4f6f4;
+}
+
+/* ════════════════════════════════
+   Card
+   ════════════════════════════════ */
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.09);
+    overflow: hidden;
+}
+
+/* ════════════════════════════════
+   Cabecera con brand + tabs
+   ════════════════════════════════ */
+.auth-header {
+    background: linear-gradient(135deg, #005a2d 0%, #007a3d 50%, #00bf63 100%);
+    padding: 1.5rem 1.5rem 0;
+}
+
+.auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+    margin-bottom: 1.25rem;
+}
+
+    .auth-brand i {
+        font-size: 1rem;
+        color: #7ed957;
+    }
+
+/* Tabs */
+.auth-tabs {
+    display: flex;
+    gap: 0;
+}
+
+.auth-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s ease, border-color 0.2s ease;
+    letter-spacing: 0.01em;
+}
+
+    .auth-tab:hover {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .auth-tab.active {
+        color: #ffffff;
+        border-bottom-color: #7ed957;
+    }
+
+/* ════════════════════════════════
+   Cuerpo del formulario
+   ════════════════════════════════ */
+.auth-body {
+    padding: 1.75rem 1.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.auth-sub {
+    font-size: 0.85rem;
+    color: #888;
+    margin: -0.25rem 0 0.25rem;
+}
+
+/* ════════════════════════════════
+   Campos
+   ════════════════════════════════ */
+.field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.field-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #444;
+    letter-spacing: 0.02em;
+}
+
+.field-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.field-icon {
+    position: absolute;
+    left: 0.85rem;
+    color: #aaa;
+    font-size: 0.85rem;
+    pointer-events: none;
+}
+
+.field-input {
+    width: 100%;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 0.6rem 2.5rem 0.6rem 2.5rem;
+    font-size: 0.9rem;
+    color: #222;
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+    .field-input:focus {
+        border-color: #00bf63;
+        box-shadow: 0 0 0 3px rgba(0, 191, 99, 0.12);
+        background: #fff;
+    }
+
+/* Botón ojo */
+.field-eye {
+    position: absolute;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+    .field-eye:hover {
+        color: #555;
+    }
+
+/* ════════════════════════════════
+   Mensajes
+   ════════════════════════════════ */
+.auth-error {
+    background: #fff3f3;
+    border: 1px solid #ffd0d0;
+    border-radius: 8px;
+    color: #c0392b;
+    font-size: 0.82rem;
+    padding: 0.6rem 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.auth-success {
+    background: #f0faf4;
+    border: 1px solid #b2eacb;
+    border-radius: 8px;
+    color: #1a7a45;
+    font-size: 0.82rem;
+    padding: 0.6rem 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+/* ════════════════════════════════
+   Botón submit
+   ════════════════════════════════ */
+.auth-submit {
+    width: 100%;
+    background: #00bf63;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    letter-spacing: 0.01em;
+}
+
+    .auth-submit:hover:not(:disabled) {
+        background: #009d52;
+        transform: translateY(-1px);
+    }
+
+    .auth-submit:active:not(:disabled) {
+        transform: translateY(0);
+    }
+
+    .auth-submit:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+
+/* ════════════════════════════════
+   Spinner de carga
+   ════════════════════════════════ */
+.spinner {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ════════════════════════════════
+   Responsive
+   ════════════════════════════════ */
+@media (max-width: 480px) {
+    .auth-card {
+        border-radius: 12px;
+    }
+
+    .auth-body {
+        padding: 1.5rem 1.25rem 1.75rem;
+    }
+}
