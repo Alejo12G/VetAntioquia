@@ -25,7 +25,6 @@ services:
     # Sobrescribimos las variables no sensibles para asegurar que conecte
     environment:
       - DB_HOST=mysql-db
-      - DB_USER=api_user
       - DB_NAME=veterinaria
     depends_on:
       - mysql-db
