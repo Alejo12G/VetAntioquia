@@ -11,7 +11,7 @@ public static class ApiConfig
     /// <summary>Desarrollo — API corriendo en localhost</summary>
     public const string BaseUrl = "http://localhost:3000/";
 #else
-    /// <summary>Producción — API en el VPS</summary>
-    public const string BaseUrl = "http://15.235.123.248:3000/";
+    /// <summary>Producción — API a través de Nginx (Puerto 80)</summary>
+    public const string BaseUrl = "http://veterinaria.dz-rp.com/";
 #endif
 }
