@@ -1,0 +1,11 @@
+# Use this workspace to collaborate
+workspace:
+  id: 39d04d2f-2957-45ba-842b-85da483b4775
+
+localResources:
+  collections:
+    - ../Veterinaria_Produccion.postman_collection.json
+
+cloudResources:
+  collections:
+    ../postman/collections/Veterinaria Producción Test: 4be187f0-93e5-4d78-aaad-1913f48677bd

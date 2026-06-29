@@ -1,0 +1,26 @@
+$kind: http-request
+name: Auth - Login
+url: "{{base_url}}/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "email": "1@gmail.com",
+        "password": "1@gmail.com"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Status code is 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      if (pm.response.code === 200) {
+          var jsonData = pm.response.json();
+          pm.collectionVariables.set("token", jsonData.accessToken);
+      }
+    language: text/javascript
+order: 1000
