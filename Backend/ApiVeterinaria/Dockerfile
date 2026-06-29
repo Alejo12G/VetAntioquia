@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:24-slim
 
 # Establecer el directorio de trabajo dentro del contenedor
 WORKDIR /usr/src/app
